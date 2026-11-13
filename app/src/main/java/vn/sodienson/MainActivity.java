@@ -38,12 +38,13 @@ public class MainActivity extends Activity {
   private WebView so, otp;
   private Button bSo, bOtp, bTram;
   private ValueCallback<Uri[]> fileCb;
-  private String tramJs = "";
+  private String tramJs = "", coreJs = "";
   private static final int PICK = 7;
   private static final String OTP_URL = "https://otpsms.pro/Electric";
 
   @Override protected void onCreate(Bundle s) {
     super.onCreate(s);
+    coreJs = readAsset("core.js");
     try (InputStream in = getAssets().open("tram.js")) { java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream(); byte[] buf = new byte[8192]; int n; while ((n = in.read(buf)) > 0) bo.write(buf, 0, n); tramJs = bo.toString("UTF-8"); } catch (Exception e) { tramJs = ""; }
     getWindow().setStatusBarColor(Color.parseColor("#0F7A55"));
 
@@ -67,7 +68,7 @@ public class MainActivity extends Activity {
       @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return false; }
       @Override public void onPageFinished(WebView v, String url) {
         CookieManager.getInstance().flush();
-        if (url != null && url.toLowerCase().contains("otpsms.pro/electric")) injectTram(false);
+        if (url != null && url.toLowerCase().contains("otpsms.pro/electric")) { otp.evaluateJavascript(coreJs, null); }
       }
     });
     otp.loadUrl(OTP_URL);
@@ -77,6 +78,14 @@ public class MainActivity extends Activity {
     bTram.setOnClickListener(v -> { show(false); if (otp.getUrl() == null || !otp.getUrl().toLowerCase().contains("otpsms.pro/electric")) otp.loadUrl(OTP_URL); else injectTram(true); });
     show(true);
   }
+
+  private String readAsset(String n) {
+    try (InputStream in = getAssets().open(n)) { java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream(); byte[] buf = new byte[8192]; int k; while ((k = in.read(buf)) > 0) bo.write(buf, 0, k); return bo.toString("UTF-8"); } catch (Exception e) { return ""; }
+  }
+
+  private boolean onElectric() { String u = otp.getUrl(); return u != null && u.toLowerCase().contains("otpsms.pro/electric"); }
+
+  private void toSo(String fn, String json) { so.post(() -> so.evaluateJavascript("window." + fn + "&&window." + fn + "(" + json + ")", null)); }
 
   private void injectTram(boolean toggle) {
     String guard = toggle ? "" : "if(!document.getElementById('sds-tram'))";
@@ -129,6 +138,26 @@ public class MainActivity extends Activity {
   }
 
   class Bridge {
+    @JavascriptInterface public void check(String codesJson, String server) {
+      runOnUiThread(() -> {
+        if (!onElectric()) {
+          toSo("__sdsDone", "{\"rows\":[],\"stop\":\"Chưa mở trang Điện otpsms hoặc chưa đăng nhập. Bấm nút Check cước ở dưới, đăng nhập rồi check lại.\"}");
+          if (otp.getUrl() == null || !otp.getUrl().contains("otpsms")) otp.loadUrl(OTP_URL);
+          return;
+        }
+        String js = coreJs + ";(async function(){try{var R=await SDSCore.run(" + codesJson + ",{server:" + org.json.JSONObject.quote(server) + ",fallback:true,onProgress:function(t){Native.progress(t)}});Native.done(JSON.stringify(R))}catch(e){Native.done(JSON.stringify({rows:[],stop:'Lỗi: '+e.message}))}})();";
+        otp.evaluateJavascript(js, null);
+      });
+    }
+    @JavascriptInterface public void askServers() {
+      runOnUiThread(() -> {
+        if (!onElectric()) { toSo("__sdsServers", "[]"); return; }
+        otp.evaluateJavascript(coreJs + ";Native.serversDone(JSON.stringify(SDSCore.servers()))", null);
+      });
+    }
+    @JavascriptInterface public void progress(String t) { toSo("__sdsProgress", org.json.JSONObject.quote(t)); }
+    @JavascriptInterface public void done(String json) { toSo("__sdsDone", json); }
+    @JavascriptInterface public void serversDone(String json) { toSo("__sdsServers", json); }
     @JavascriptInterface public boolean isDark() {
       return (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
     }
