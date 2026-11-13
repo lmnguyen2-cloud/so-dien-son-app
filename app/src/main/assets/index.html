@@ -403,9 +403,18 @@ function assign_(codes, name) {
 
 <!-- CÀI ĐẶT -->
 <section class="tab" id="tab-cai" hidden>
+  <div class="card" id="g-card">
+    <h2>Tài khoản Google &amp; sổ tháng</h2>
+    <p class="hint" id="g-st"></p>
+    <div class="btns"><button class="btn" id="g-login">Đăng nhập Google</button><button class="btn ghost" id="g-pick">Chọn sheet từ Drive</button></div>
+    <div class="chips" id="g-list"></div>
+    <label>Hoặc dán link Google Sheet bất kỳ (T11, T12…)<input id="g-link" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <div class="btns"><button class="btn ghost" id="g-use">Dùng sheet này</button></div>
+    <p class="hint">Đã đăng nhập Google thì app đọc/ghi thẳng vào sheet đã chọn — không cần cầu nối Apps Script. Sang tháng mới chỉ cần chọn sheet T12.</p>
+  </div>
   <div class="card">
-    <h2>Cầu nối sổ tháng (Google Sheet)</h2>
-    <p class="hint">Dùng để tải kho, dò trùng, ghi lô và ghi tên khách vào sổ. Cách cài cầu nối xem ở tab Check cước. Bản mở trong Claude không gọi được cầu nối — dùng app Android hoặc file trên máy.</p>
+    <h2>Cầu nối Apps Script (dự phòng)</h2>
+    <p class="hint">Chỉ cần khi không đăng nhập Google (bản web). Dùng để tải kho, dò trùng, ghi lô và ghi tên khách vào sổ. Cách cài cầu nối xem ở tab Check cước. Bản mở trong Claude không gọi được cầu nối — dùng app Android hoặc file trên máy.</p>
     <label>Link cầu nối (…/exec)<input id="c-url" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <label>Link Google Sheet tháng (T11, sang tháng 12 dán link T12)<input id="c-sheet" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
     <label>Mã bí mật<input id="c-key"></label>
@@ -787,9 +796,71 @@ $('l-t11').onclick=()=>{const {ok,me}=loMine();if(!me){toast('Chọn khách làm
 /* ===== Cầu nối sổ tháng ===== */
 let BR=store.get('bridge',{});
 $('c-url').value=BR.url||'';$('c-sheet').value=BR.sheet||'';$('c-key').value=BR.key||'';
-async function api(body){if(!BR.url||!BR.key)throw new Error('Chưa cài cầu nối (tab Cài đặt)');
+/* ===== Google Sheets trực tiếp (app Android, đăng nhập Google) ===== */
+const HAS_G=!!(window.Native&&Native.googleAuth&&Native.http);
+const G={tok:null,authP:null,pend:{},seq:0,meta:{}};
+let GSHEET=store.get('gsheet',null);
+window.__gAuth=r=>{const p=G.authP;G.authP=null;if(r&&r.token){G.tok=r.token;p&&p.res(r.token)}else p&&p.rej(new Error((r&&r.err)||'Không đăng nhập được Google'))};
+window.__gHttp=r=>{const p=G.pend[r.id];delete G.pend[r.id];p&&p(r)};
+function gAuth(){if(G.authP)return G.authP.pr;let res,rej;const pr=new Promise((a,b)=>{res=a;rej=b});G.authP={res,rej,pr};Native.googleAuth();return pr}
+function rawHttp(method,url,body){return new Promise(res=>{const id=String(++G.seq);G.pend[id]=res;Native.http(id,method,url,body?JSON.stringify(body):'',G.tok||'')})}
+async function gfetch(method,url,body){if(!G.tok)await gAuth();let r=await rawHttp(method,url,body);
+  if(r.status===401){G.tok=null;await gAuth();r=await rawHttp(method,url,body)}
+  if(r.status===0)throw new Error('Không có mạng hoặc không gọi được Google');
+  if(r.status>=300){let m='';try{m=JSON.parse(r.body).error.message}catch(e){m=(r.body||'').slice(0,160)}throw new Error('Google báo lỗi '+r.status+': '+m)}
+  return r.body?JSON.parse(r.body):{}}
+const SH='https://sheets.googleapis.com/v4/spreadsheets/';
+const sheetIdFrom=s=>{const m=String(s||'').match(/\/d\/([a-zA-Z0-9_-]{20,})/)||String(s||'').trim().match(/^([a-zA-Z0-9_-]{20,})$/);return m?m[1]:null};
+async function gMeta(id){const j=await gfetch('GET',SH+id+'?fields=properties.title,sheets.properties(sheetId,title)');const s=j.sheets[0].properties;return{name:j.properties.title,tab:s.title,sid:s.sheetId}}
+const gRange=(m,a)=>encodeURIComponent(`'${m.tab.replace(/'/g,"''")}'!${a}`);
+async function gVals(id,m,a,render){const j=await gfetch('GET',SH+id+'/values/'+gRange(m,a)+'?valueRenderOption='+(render||'UNFORMATTED_VALUE'));return j.values||[]}
+async function gRead(id,m){const [v,f]=await Promise.all([gVals(id,m,'A1:D'),gVals(id,m,'C1:C','FORMULA')]);
+  let tr=0;for(let i=f.length-1;i>=0;i--){if(/^=SUM\(/i.test(String((f[i]||[])[0]||''))){tr=i+1;break}}
+  const idx={};v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(c)(idx[c]=idx[c]||[]).push({row:i+1,amount:r[2],d:String(r[3]||''),lot:String(r[0]||'')})});
+  return{v,idx,tr,last:Math.max(v.length,f.length)}}
+const GS={
+  async ping(id){const m=await gMeta(id);return{ok:true,name:m.name}},
+  async check(id,b){const m=await gMeta(id),R=await gRead(id,m),o={};(b.codes||[]).forEach(c=>{c=String(c).trim().toUpperCase();if(R.idx[c])o[c]=R.idx[c]});return{ok:true,found:o,name:m.name}},
+  async stock(id){const m=await gMeta(id),R=await gRead(id,m),rows=[];R.v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(/^[A-Z]{2}\d{8,}/.test(c)&&+r[2]>0&&!String(r[3]||'').trim())rows.push([i+1,String(r[0]||''),c,+r[2]])});return{ok:true,name:m.name,rows}},
+  async assign(id,b){const name=String(b.name||'').trim().toUpperCase();if(!name)throw new Error('Chưa có tên khách');const m=await gMeta(id),R=await gRead(id,m);
+    const want=new Set((b.codes||[]).map(c=>String(c).trim().toUpperCase())),data=[],taken=[],done=[];
+    R.v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!want.has(c))return;const d=String(r[3]||'').trim();
+      if(d&&d.toUpperCase()!==name){taken.push([c,d]);want.delete(c);return}if(!d)data.push({range:`'${m.tab}'!D${i+1}`,values:[[name]]});done.push(c);want.delete(c)});
+    if(data.length)await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data});
+    return{ok:true,name:m.name,done:done.length,taken,missing:[...want]}},
+  async insert(id,b){const m=await gMeta(id),R=await gRead(id,m),seen={};
+    const add=(b.rows||[]).filter(r=>{const c=String(r[1]).trim().toUpperCase();if(R.idx[c]||seen[c]||!(+r[2]>0))return false;seen[c]=1;return true}).sort((a,b2)=>a[2]-b2[2]);
+    const skipped=(b.rows||[]).length-add.length;if(!add.length)return{ok:true,added:0,skipped,name:m.name};
+    const n=add.length;let tr=R.tr,fresh=false;if(!tr){fresh=true;tr=R.last+1}
+    const s0=tr-1,reqs=[];
+    if(!fresh){reqs.push({insertDimension:{range:{sheetId:m.sid,dimension:'ROWS',startIndex:s0,endIndex:s0+n},inheritFromBefore:true}});
+      if(s0>=1)reqs.push({copyPaste:{source:{sheetId:m.sid,startRowIndex:s0-1,endRowIndex:s0,startColumnIndex:0,endColumnIndex:7},destination:{sheetId:m.sid,startRowIndex:s0,endRowIndex:s0+n,startColumnIndex:0,endColumnIndex:7},pasteType:'PASTE_FORMAT'}})}
+    reqs.push({repeatCell:{range:{sheetId:m.sid,startRowIndex:s0,endRowIndex:s0+n,startColumnIndex:0,endColumnIndex:4},cell:{userEnteredFormat:{}},fields:'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle'}});
+    reqs.push({repeatCell:{range:{sheetId:m.sid,startRowIndex:s0,endRowIndex:s0+n+1,startColumnIndex:2,endColumnIndex:3},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
+    reqs.push({repeatCell:{range:{sheetId:m.sid,startRowIndex:s0,endRowIndex:s0+n,startColumnIndex:4,endColumnIndex:6},cell:{userEnteredFormat:{numberFormat:{type:'PERCENT',pattern:'0.0%'}}},fields:'userEnteredFormat.numberFormat'}});
+    if(fresh)reqs.push({repeatCell:{range:{sheetId:m.sid,startRowIndex:s0+n,endRowIndex:s0+n+1,startColumnIndex:6,endColumnIndex:7},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}});
+    await gfetch('POST',SH+id+':batchUpdate',{requests:reqs});
+    const t=`'${m.tab}'!`,a=tr,z=tr+n-1,ntr=tr+n;
+    await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:[{range:`${t}A${a}:C${z}`,values:add.map(r=>[r[0],String(r[1]).trim().toUpperCase(),+r[2]])},{range:`${t}F${a}:F${z}`,values:add.map(r=>[+r[3]])}]});
+    await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'USER_ENTERED',data:[{range:`${t}C${ntr}`,values:[[`=SUM(C1:C${ntr-1})`]]},{range:`${t}G${ntr}`,values:[[`=SUM(G1:G${ntr-1})`]]}]});
+    return{ok:true,added:n,skipped,from:a,to:z,name:m.name}}
+};
+async function gList(){const q=encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+  const j=await gfetch('GET','https://www.googleapis.com/drive/v3/files?q='+q+'&orderBy=modifiedTime%20desc&pageSize=40&fields=files(id,name,modifiedTime)');return j.files||[]}
+async function gEmail(){try{const j=await gfetch('GET','https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)');return j.user.emailAddress}catch(e){return''}}
+function sheetLabel(){return GSHEET&&HAS_G?GSHEET.name:(BR.name||'sổ tháng')}
+function renderG(){if(!HAS_G){$('g-card').hidden=false;$('g-st').textContent='Đăng nhập Google chỉ có trên app Android. Bản web dùng cầu nối bên dưới.';['g-login','g-pick','g-use'].forEach(i=>$(i).disabled=true);return}
+  $('g-st').innerHTML=(G.email?`Đã đăng nhập: <b>${esc(G.email)}</b>`:(G.tok?'Đã đăng nhập Google':'Chưa đăng nhập Google'))+' · Sheet đang dùng: '+(GSHEET?`<b>${esc(GSHEET.name)}</b>`:'<b>chưa chọn</b>')}
+
+async function api(body){if(HAS_G&&GSHEET&&GSHEET.id){const f=GS[body.action];if(!f)throw new Error('Không rõ lệnh');return f(GSHEET.id,body)}
+  if(!BR.url||!BR.key)throw new Error(HAS_G?'Chưa chọn sheet (tab Cài đặt → Đăng nhập Google → Chọn sheet)':'Chưa cài cầu nối (tab Cài đặt)');
   const r=await fetch(BR.url,{method:'POST',body:JSON.stringify(Object.assign({key:BR.key,sheet:BR.sheet||''},body))});const j=await r.json();if(!j.ok)throw new Error(j.err||'lỗi cầu nối');return j}
 $('c-bsave').onclick=()=>{BR={url:$('c-url').value.trim(),sheet:$('c-sheet').value.trim(),key:$('c-key').value.trim()};store.set('bridge',BR);toast('Đã lưu')};
+$('g-login').onclick=async()=>{$('g-st').textContent='Đang mở đăng nhập Google…';try{G.tok=null;await gAuth();G.email=await gEmail();store.set('gemail',G.email);renderG()}catch(e){$('g-st').textContent='Không đăng nhập được: '+e.message}};
+$('g-pick').onclick=async()=>{$('g-list').innerHTML='<span class="hint">Đang tải danh sách sheet…</span>';try{const L=await gList();$('g-list').innerHTML=L.map(f=>`<button data-id="${f.id}" data-n="${esc(f.name)}" aria-pressed="${GSHEET&&GSHEET.id===f.id}">${esc(f.name)}</button>`).join('')||'<span class="hint">Không thấy Google Sheet nào.</span>';renderG()}catch(e){$('g-list').innerHTML='<span class="hint">Lỗi: '+esc(e.message)+'</span>'}};
+$('g-list').onclick=e=>{const b=e.target.closest('button[data-id]');if(!b)return;GSHEET={id:b.dataset.id,name:b.dataset.n};store.set('gsheet',GSHEET);[...$('g-list').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderG();toast('Đã chọn '+GSHEET.name)};
+$('g-use').onclick=async()=>{const id=sheetIdFrom($('g-link').value);if(!id){toast('Link sheet không đúng');return}$('g-st').textContent='Đang mở sheet…';try{const m=await gMeta(id);GSHEET={id,name:m.name};store.set('gsheet',GSHEET);renderG();toast('Đã chọn '+m.name)}catch(e){$('g-st').textContent='Không mở được sheet: '+e.message}};
+G.email=store.get('gemail','');renderG();
 $('c-btest').onclick=async()=>{$('c-bnote').textContent='Đang thử…';try{const j=await api({action:'ping'});BR.name=j.name;store.set('bridge',BR);$('c-bnote').textContent='Kết nối được sheet: '+j.name}catch(e){$('c-bnote').textContent='Không kết nối được: '+e.message}};
 
 /* ===== Nhận lô: check cước, Excel, ghi sổ ===== */
@@ -822,7 +893,7 @@ $('l-xl').onclick=()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast(
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();toast('Đã tải '+fn)};
 let insArm=0;
 $('l-ins').onclick=async()=>{const P=loParts();if(!P.ok.length){toast('Không có mã mới còn cước để ghi');return}
-  const t=loTier();if(!insArm){insArm=1;setTimeout(()=>insArm=0,15000);$('l-chknote').textContent=`Sẽ ghi ${P.ok.length} mã vào cuối "${BR.name||'sổ tháng'}" (trước dòng tổng), lô "${loName()}", bậc ${t}. Bấm "Ghi vào sổ tháng" lần nữa để xác nhận.`;return}
+  const t=loTier();if(!insArm){insArm=1;setTimeout(()=>insArm=0,15000);$('l-chknote').textContent=`Sẽ ghi ${P.ok.length} mã vào cuối "${sheetLabel()}" (trước dòng tổng), lô "${loName()}", bậc ${t}. Bấm "Ghi vào sổ tháng" lần nữa để xác nhận.`;return}
   insArm=0;$('l-chknote').textContent='Đang ghi…';
   try{const j=await api({action:'insert',rows:P.ok.map(r=>[loName(),r.code,r.c.rem,Calc.tierRate(r.c.rem,t)/100])});$('l-chknote').textContent=`Đã ghi ${j.added} mã vào "${j.name}" (dòng ${j.from}–${j.to})${j.skipped?`, bỏ ${j.skipped} mã đã có`:''}. Dòng tổng đã cập nhật.`}
   catch(e){$('l-chknote').textContent='Không ghi được: '+e.message}};
