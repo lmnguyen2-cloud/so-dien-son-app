@@ -39,6 +39,8 @@ public class MainActivity extends Activity {
   private Button bSo, bOtp, bTram;
   private ValueCallback<Uri[]> fileCb;
   private String tramJs = "", coreJs = "";
+  private String[] pending = null;
+  private boolean pendingSv = false;
   private static final int PICK = 7;
   private static final String OTP_URL = "https://otpsms.pro/Electric";
 
@@ -68,7 +70,14 @@ public class MainActivity extends Activity {
       @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return false; }
       @Override public void onPageFinished(WebView v, String url) {
         CookieManager.getInstance().flush();
-        if (url != null && url.toLowerCase().contains("otpsms.pro/electric")) { otp.evaluateJavascript(coreJs, null); }
+        if (url != null && url.toLowerCase().contains("otpsms.pro/electric")) {
+          otp.evaluateJavascript(coreJs, null);
+          if (pending != null) { String[] p = pending; pending = null; runCheck(p[0], p[1]); }
+          if (pendingSv) { pendingSv = false; otp.evaluateJavascript("Native.serversDone(JSON.stringify(SDSCore.servers()))", null); }
+        } else if (pending != null && url != null && url.toLowerCase().contains("login")) {
+          pending = null;
+          toSo("__sdsDone", "{\"rows\":[],\"stop\":\"otpsms đang đòi đăng nhập. Bấm nút Check cước ở dưới, đăng nhập xong quay lại bấm Check cước.\"}");
+        }
       }
     });
     otp.loadUrl(OTP_URL);
@@ -86,6 +95,11 @@ public class MainActivity extends Activity {
   private boolean onElectric() { String u = otp.getUrl(); return u != null && u.toLowerCase().contains("otpsms.pro/electric"); }
 
   private void toSo(String fn, String json) { so.post(() -> so.evaluateJavascript("window." + fn + "&&window." + fn + "(" + json + ")", null)); }
+
+  private void runCheck(String codesJson, String server) {
+    String js = coreJs + ";(async function(){try{var R=await SDSCore.run(" + codesJson + ",{server:" + org.json.JSONObject.quote(server) + ",fallback:true,onProgress:function(t){Native.progress(t)}});Native.done(JSON.stringify(R))}catch(e){Native.done(JSON.stringify({rows:[],stop:'Lỗi: '+e.message}))}})();";
+    otp.evaluateJavascript(js, null);
+  }
 
   private void injectTram(boolean toggle) {
     String guard = toggle ? "" : "if(!document.getElementById('sds-tram'))";
@@ -141,17 +155,17 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void check(String codesJson, String server) {
       runOnUiThread(() -> {
         if (!onElectric()) {
-          toSo("__sdsDone", "{\"rows\":[],\"stop\":\"Chưa mở trang Điện otpsms hoặc chưa đăng nhập. Bấm nút Check cước ở dưới, đăng nhập rồi check lại.\"}");
-          if (otp.getUrl() == null || !otp.getUrl().contains("otpsms")) otp.loadUrl(OTP_URL);
+          pending = new String[]{ codesJson, server };
+          toSo("__sdsProgress", org.json.JSONObject.quote("Đang mở trang Điện otpsms…"));
+          otp.loadUrl(OTP_URL);
           return;
         }
-        String js = coreJs + ";(async function(){try{var R=await SDSCore.run(" + codesJson + ",{server:" + org.json.JSONObject.quote(server) + ",fallback:true,onProgress:function(t){Native.progress(t)}});Native.done(JSON.stringify(R))}catch(e){Native.done(JSON.stringify({rows:[],stop:'Lỗi: '+e.message}))}})();";
-        otp.evaluateJavascript(js, null);
+        runCheck(codesJson, server);
       });
     }
     @JavascriptInterface public void askServers() {
       runOnUiThread(() -> {
-        if (!onElectric()) { toSo("__sdsServers", "[]"); return; }
+        if (!onElectric()) { pendingSv = true; otp.loadUrl(OTP_URL); return; }
         otp.evaluateJavascript(coreJs + ";Native.serversDone(JSON.stringify(SDSCore.servers()))", null);
       });
     }
