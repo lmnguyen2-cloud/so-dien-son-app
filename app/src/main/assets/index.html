@@ -109,7 +109,7 @@ details summary{cursor:pointer;font-weight:600}
     </div>
     <p class="hint" id="l-chknote"></p>
     <div class="stats" id="l-stats"></div>
-    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi (100 dòng)</button><button class="btn ghost" id="l-sub">Gửi sheet đại lý con</button><button class="btn ghost" id="l-subimg">Ảnh gửi nhóm</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
+    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi (100 dòng)</button><button class="btn ghost" id="l-sub">Gửi sheet đại lý con</button><button class="btn ghost" id="l-subimg">Ảnh gửi nhóm</button><button class="btn ghost" id="l-zmsg">Gửi Zalo (100 dòng)</button><button class="btn ghost" id="l-zxl">Gửi Excel Zalo</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
     <div class="tbl"><table id="l-tbl"></table></div>
     <div id="l-group" class="hint"></div>
   </div>
@@ -154,7 +154,7 @@ details summary{cursor:pointer;font-weight:600}
   <div class="card">
     <div class="stats" id="f-stats"></div>
     <div class="tbl"><table id="f-tbl"></table></div>
-    <div class="btns"><button class="btn" id="f-copy">Copy gửi khách</button><button class="btn ghost" id="f-assign">Ghi tên khách vào sổ</button><button class="btn ghost" id="f-tobank">Chuyển sang Bank khách</button></div>
+    <div class="btns"><button class="btn" id="f-copy">Copy gửi khách</button><button class="btn ghost" id="f-zalo">Gửi Zalo khách</button><button class="btn ghost" id="f-assign">Ghi tên khách vào sổ</button><button class="btn ghost" id="f-tobank">Chuyển sang Bank khách</button></div>
     <p class="hint" id="f-note"></p>
   </div>
 </section>
@@ -184,7 +184,7 @@ details summary{cursor:pointer;font-weight:600}
   <div class="card">
     <h2>Tin nhắn gửi Zalo</h2>
     <pre class="msg" id="b-msg"></pre>
-    <div class="btns"><button class="btn" id="b-copy">Copy tin nhắn</button><button class="btn ghost" id="b-share" hidden>Gửi qua Zalo…</button><button class="btn ghost" id="b-copyt11">Copy dòng ghi sổ (mã · tên · %)</button></div>
+    <div class="btns"><button class="btn" id="b-copy">Copy tin nhắn</button><button class="btn ghost" id="b-share">Gửi Zalo</button><button class="btn ghost" id="b-zimg">Gửi ảnh Zalo</button><button class="btn ghost" id="b-copyt11">Copy dòng ghi sổ (mã · tên · %)</button></div>
   </div>
   <div class="card imgbox">
     <h2>Ảnh chi tiết</h2>
@@ -218,7 +218,7 @@ details summary{cursor:pointer;font-weight:600}
   <div class="card">
     <h2>Tin nhắn gửi đại lý</h2>
     <pre class="msg" id="d-msg"></pre>
-    <div class="btns"><button class="btn" id="d-copy">Copy tin nhắn</button><button class="btn ghost" id="d-share" hidden>Gửi qua Zalo…</button></div>
+    <div class="btns"><button class="btn" id="d-copy">Copy tin nhắn</button><button class="btn ghost" id="d-share">Gửi Zalo</button><button class="btn ghost" id="d-zimg">Gửi ảnh Zalo</button></div>
   </div>
   <div class="card imgbox">
     <h2>Ảnh chi tiết</h2>
@@ -809,7 +809,7 @@ const G={tok:null,authP:null,pend:{},seq:0,meta:{}};
 let GSHEET=store.get('gsheet',null);
 window.__gAuth=r=>{const p=G.authP;G.authP=null;if(r&&r.token){G.tok=r.token;p&&p.res(r.token)}else p&&p.rej(new Error((r&&r.err)||'Không đăng nhập được Google'))};
 window.__gHttp=r=>{const p=G.pend[r.id];delete G.pend[r.id];p&&p(r)};
-function gAuth(){if(G.authP)return G.authP.pr;let res,rej;const pr=new Promise((a,b)=>{res=a;rej=b});G.authP={res,rej,pr};Native.googleAuth();return pr}
+function gAuth(choose){if(G.authP)return G.authP.pr;let res,rej;const pr=new Promise((a,b)=>{res=a;rej=b});G.authP={res,rej,pr};if(choose&&Native.googleAuthChoose)Native.googleAuthChoose();else Native.googleAuth();return pr}
 function rawHttp(method,url,body){return new Promise(res=>{const id=String(++G.seq);G.pend[id]=res;Native.http(id,method,url,body?JSON.stringify(body):'',G.tok||'')})}
 async function gfetch(method,url,body){if(!G.tok)await gAuth();let r=await rawHttp(method,url,body);
   if(r.status===401){G.tok=null;await gAuth();r=await rawHttp(method,url,body)}
@@ -863,11 +863,16 @@ async function api(body){if(HAS_G&&GSHEET&&GSHEET.id){const f=GS[body.action];if
   if(!BR.url||!BR.key)throw new Error(HAS_G?'Chưa chọn sheet (tab Cài đặt → Đăng nhập Google → Chọn sheet)':'Chưa cài cầu nối (tab Cài đặt)');
   const r=await fetch(BR.url,{method:'POST',body:JSON.stringify(Object.assign({key:BR.key,sheet:BR.sheet||''},body))});const j=await r.json();if(!j.ok)throw new Error(j.err||'lỗi cầu nối');return j}
 $('c-bsave').onclick=()=>{BR={url:$('c-url').value.trim(),sheet:$('c-sheet').value.trim(),key:$('c-key').value.trim()};store.set('bridge',BR);toast('Đã lưu')};
-$('g-login').onclick=async()=>{$('g-st').textContent='Đang mở đăng nhập Google…';try{G.tok=null;await gAuth();G.email=await gEmail();store.set('gemail',G.email);renderG()}catch(e){$('g-st').textContent='Không đăng nhập được: '+e.message}};
+$('g-login').onclick=async()=>{$('g-st').textContent='Đang mở đăng nhập Google…';try{G.tok=null;await gAuth(true);G.email=await gEmail();store.set('gemail',G.email);renderG()}catch(e){$('g-st').textContent='Không đăng nhập được: '+e.message}};
 $('g-pick').onclick=async()=>{$('g-list').innerHTML='<span class="hint">Đang tải danh sách sheet…</span>';try{const L=await gList();$('g-list').innerHTML=L.map(f=>`<button data-id="${f.id}" data-n="${esc(f.name)}" aria-pressed="${GSHEET&&GSHEET.id===f.id}">${esc(f.name)}</button>`).join('')||'<span class="hint">Không thấy Google Sheet nào.</span>';renderG()}catch(e){$('g-list').innerHTML='<span class="hint">Lỗi: '+esc(e.message)+'</span>'}};
 $('g-list').onclick=e=>{const b=e.target.closest('button[data-id]');if(!b)return;GSHEET={id:b.dataset.id,name:b.dataset.n};store.set('gsheet',GSHEET);[...$('g-list').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderG();toast('Đã chọn '+GSHEET.name)};
 $('g-use').onclick=async()=>{const id=sheetIdFrom($('g-link').value);if(!id){toast('Link sheet không đúng');return}$('g-st').textContent='Đang mở sheet…';try{const m=await gMeta(id);GSHEET={id,name:m.name};store.set('gsheet',GSHEET);renderG();toast('Đã chọn '+m.name)}catch(e){$('g-st').textContent='Không mở được sheet: '+e.message}};
 G.email=store.get('gemail','');renderG();
+/* ===== Gửi Zalo ===== */
+const HAS_Z=!!(window.Native&&Native.shareZalo);
+function zaloText(t){if(HAS_Z)Native.shareZalo(t);else{copyText(t);toast('Đã copy — mở Zalo, dán vào cuộc trò chuyện')}}
+function zaloFile(name,dataUrl,mime){if(window.Native&&Native.shareFile)Native.shareFile(name,String(dataUrl).split(',')[1],mime);else toast('Gửi file sang Zalo chỉ có trên app Android')}
+function blobUrl(b){return new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result);rd.readAsDataURL(b)})}
 /* ===== Sheet đại lý con ===== */
 let SUB=store.get('sub',{link:'https://docs.google.com/spreadsheets/d/1vkT2xGPE4vPmOuDB2v9f1oegDVBQbPZ8CABJs5TH6W4/edit',name:'ĐIỆN A SƠN VTS',min:400000});
 $('s-link').value=SUB.link||'';$('s-name').value=SUB.name||'';$('s-min').value=Calc.dots(SUB.min||400000);
@@ -894,14 +899,14 @@ $('l-sub').onclick=async()=>{const rows=subRows();if(!rows.length){toast('Check 
   try{const j=await GS.push(id,{label:lab,rows});$('l-chknote').textContent=`Đã dán ${j.added} đơn vào "${j.name}" (dòng ${j.from}–${j.to})${j.skipped?`, bỏ ${j.skipped} mã đã có trên sheet`:''}. Bấm "Ảnh gửi nhóm" để lấy ảnh báo nhóm.`}
   catch(e){$('l-chknote').textContent='Không dán được: '+e.message}};
 $('l-subimg').onclick=()=>{const rows=subRows();if(!rows.length){toast('Chưa có đơn để chụp');return}const lab=loName(),sum=rows.reduce((s,r)=>s+r[1],0);
-  const src=drawSubImg(lab,rows,sum);const img=new Image();img.src=src;dlImg(img,lab+' - '+(SUB.name||'dai ly con')+'.png')};
+  const src=drawSubImg(lab,rows,sum);if(window.Native&&Native.shareFile){zaloFile(lab+' - '+(SUB.name||'dai ly con')+'.png',src,'image/png');return}const img=new Image();img.src=src;dlImg(img,lab+' - '+(SUB.name||'dai ly con')+'.png')};
 function drawSubImg(lab,rows,sum){const W=560,rh=40,H=110+rh*(rows.length+1)+60;const c=document.createElement('canvas');c.width=W*2;c.height=H*2;const x=c.getContext('2d');x.scale(2,2);
   x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#ffff00';x.fillRect(20,20,W-40,64);x.fillStyle='#ff0000';x.font='bold 36px Georgia,serif';x.fillText(lab,32,66);
   let y=110;x.fillStyle='#18201d';x.font='bold 18px Georgia,serif';x.fillText('Mã',32,y);x.textAlign='right';x.fillText('Số tiền',W-32,y);x.textAlign='left';
   rows.forEach((r,i)=>{y+=rh;if(i%2){x.fillStyle='#f3f5f4';x.fillRect(20,y-28,W-40,rh)}x.fillStyle='#18201d';x.font='24px Georgia,serif';x.fillText(r[0],32,y);x.textAlign='right';x.fillText(Calc.dots(r[1]),W-32,y);x.textAlign='left'});
   y+=rh+6;x.font='bold 24px Georgia,serif';x.fillText(rows.length+' đơn',32,y);x.textAlign='right';x.fillText(Calc.dots(sum),W-32,y);x.textAlign='left';return c.toDataURL('image/png')}
 $('g-logout').onclick=async()=>{if(!HAS_G)return;try{if(G.tok)await rawHttp('POST','https://oauth2.googleapis.com/revoke?token='+encodeURIComponent(G.tok),null)}catch(e){}
-  G.tok=null;G.email='';store.set('gemail','');GSHEET=null;store.set('gsheet',null);$('g-list').innerHTML='';renderG();toast('Đã đăng xuất Google')};
+  if(Native.googleLogout)Native.googleLogout();G.tok=null;G.email='';store.set('gemail','');GSHEET=null;store.set('gsheet',null);$('g-list').innerHTML='';renderG();toast('Đã đăng xuất Google')};
 
 $('c-btest').onclick=async()=>{$('c-bnote').textContent='Đang thử…';try{const j=await api({action:'ping'});BR.name=j.name;store.set('bridge',BR);$('c-bnote').textContent='Kết nối được sheet: '+j.name}catch(e){$('c-bnote').textContent='Không kết nối được: '+e.message}};
 
@@ -931,6 +936,7 @@ $('l-xl').onclick=()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast(
   P.err.forEach(r=>{i++;rows.push([i,r.code,'','Lỗi check: '+(r.c?r.c.st:'chưa check')])});
   rows.push(['',{v:'Tổng',s:1},{v:sum,s:3},'']);
   const name=loName(),fn=name.replace(/^(\S)(\S*)/,(m,a,b)=>a+b.toLowerCase())+'.xlsx',blob=XLW.xlsx(name,rows);
+  if(window.__xlZalo){window.__xlZalo=false;blobUrl(blob).then(u=>zaloFile(fn,u,blob.type));return}
   if(window.Native&&Native.saveFile){const rd=new FileReader();rd.onload=()=>Native.saveFile(fn,String(rd.result).split(',')[1],blob.type);rd.readAsDataURL(blob);return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();toast('Đã tải '+fn)};
 let insArm=0;
@@ -943,6 +949,12 @@ let msgIdx=0;
 $('l-msg').onclick=()=>{const P=loParts();if(!P.ok.length){toast('Check cước trước đã');return}const L=P.ok.map(r=>r.code+' '+Calc.dots(r.c.rem)),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100).join('\n'));
   const k=msgIdx%ch.length;msgIdx++;copyText(ch[k],$('l-tbl'));$('l-chknote').textContent=`Đã copy phần ${k+1}/${ch.length}. Bấm lại để copy phần tiếp.`};
 ['l-day','l-tier','l-sv'].forEach(id=>$(id).addEventListener('input',renderLo));
+
+
+let zIdx=0;
+$('l-zmsg').onclick=()=>{const P=loParts();if(!P.ok.length){toast('Check cước trước đã');return}const L=P.ok.map(r=>r.code+' '+Calc.dots(r.c.rem)),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100).join('\n'));const k=zIdx%ch.length;zIdx++;zaloText(ch[k]);$('l-chknote').textContent=`Đã mở Zalo với phần ${k+1}/${ch.length}. Bấm lại để gửi phần tiếp.`};
+$('l-zxl').onclick=async()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast('Check cước trước đã');return}window.__xlZalo=true;$('l-xl').click()};
+$('f-zalo').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}const s=PICK.reduce((t,r)=>t+r.amount,0);zaloText(PICK.map(r=>r.code+'\t'+Calc.dots(r.amount)).join('\n')+'\nTổng\t'+Calc.dots(s))};
 
 /* ===== Lọc đơn ===== */
 let STOCK=store.get('stock',null),PICK=[];const TAKEN=new Set(store.get('taken',[]));
@@ -1023,7 +1035,7 @@ $('f-assign').onclick=async()=>{const nm=Calc.strip($('f-name').value);if(!PICK.
   catch(e){$('f-note').textContent='Không ghi được: '+e.message}};
 $('f-tobank').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}$('b-name').value=Calc.strip($('f-name').value);$('b-rate').value=$('f-rate').value;$('b-in').value=PICK.map(r=>r.code+' '+Calc.dots(r.amount)).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';renderBank();show('bank')};
 
-if(window.Native&&Native.share){['b','d'].forEach(p=>{$(p+'-share').hidden=false;$(p+'-share').onclick=()=>Native.share($(p+'-msg').textContent)})}
+['b','d'].forEach(p=>{$(p+'-share').onclick=()=>zaloText($(p+'-msg').textContent);$(p+'-zimg').onclick=()=>{const s=$(p+'-img').src;if(!s||!s.startsWith('data:')){toast('Chưa có ảnh');return}zaloFile((p==='b'?'Bank '+$('b-name').value:'Thanh toan '+$('d-name').value+' '+$('d-lot').value).trim()+'.png',s,'image/png')}});
 function applyTheme(v){const r=document.documentElement;
   if(v==='light'||v==='dark'){r.dataset.theme=v}
   else if(window.Native&&Native.isDark){r.dataset.theme=Native.isDark()?'dark':'light'}
