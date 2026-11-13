@@ -1,0 +1,658 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<title>Sổ Điện Sơn</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head><body><style>
+/* Layout: một cột công cụ, thanh tab dính trên cùng, mỗi tab = ô nhập → bảng đã đọc → tin nhắn + ảnh */
+:root{
+  --bg:#f3f5f4; --panel:#ffffff; --ink:#18201d; --muted:#5d6b66; --line:#d9e0dd;
+  --accent:#0f7a55; --accent-ink:#ffffff; --accent-soft:#e1f2ea; --warn:#b4540a; --warn-soft:#fbeedd; --bad:#b42318; --bad-soft:#fbe4e1;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Roboto Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111614; --panel:#1a211e; --ink:#e6ece9; --muted:#97a6a0; --line:#2c3632;
+  --accent:#3fbf8c; --accent-ink:#06130d; --accent-soft:#16352a; --warn:#f0a050; --warn-soft:#3a2a17; --bad:#f2836f; --bad-soft:#3d1d18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111614; --panel:#1a211e; --ink:#e6ece9; --muted:#97a6a0; --line:#2c3632;
+  --accent:#3fbf8c; --accent-ink:#06130d; --accent-soft:#16352a; --warn:#f0a050; --warn-soft:#3a2a17; --bad:#f2836f; --bad-soft:#3d1d18; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{margin:0;font:15px/1.5 var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:860px;margin:0 auto}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-size:19px;margin:0;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:13px}
+nav{display:flex;gap:6px;margin-top:10px;overflow-x:auto;scrollbar-width:none}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:7px 14px;font:600 14px var(--sans);cursor:pointer}
+nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+section.tab{display:grid;gap:14px;margin-top:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:12px;min-width:0}
+.card h2{font-size:15px;margin:0}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>label{flex:1 1 140px;min-width:0}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+input,select,textarea{font:15px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+textarea{font-family:var(--mono);font-size:14px;min-height:150px;resize:vertical;line-height:1.45}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:9px 14px;font:600 14px var(--sans);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.sample{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:2px 8px;justify-self:start}
+pre.msg{margin:0;font:14px/1.5 var(--mono);white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:420px;overflow:auto}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.stat b{display:block;font:700 17px var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat small{color:var(--muted);font-size:12px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-height:320px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:600}
+td.n{text-align:right;font-family:var(--mono)}
+tr.bad td{background:var(--bad-soft)}
+tr.warn td{background:var(--warn-soft)}
+.pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.w{background:var(--warn-soft);color:var(--warn)}
+.pill.b{background:var(--bad-soft);color:var(--bad)}
+.imgbox img{display:block;max-width:100%;border:1px solid var(--line);border-radius:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;z-index:20}
+details summary{cursor:pointer;font-weight:600}
+@media (max-width:520px){.stats{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="brand"><h1>Sổ Điện Sơn</h1><span>Tính bank khách · thanh toán đại lý · tra mã T11 — chạy được không cần mạng</span></div>
+  <nav role="tablist">
+    <button role="tab" data-tab="lo" aria-selected="false" id="t-lo">Nhận lô</button>
+    <button role="tab" data-tab="bank" aria-selected="true" id="t-bank">Bank khách</button>
+    <button role="tab" data-tab="dl" aria-selected="false" id="t-dl">Thanh toán đại lý</button>
+    <button role="tab" data-tab="chk" aria-selected="false" id="t-chk">Check cước</button>
+    <button role="tab" data-tab="tra" aria-selected="false" id="t-tra">Tra mã T11</button>
+    <button role="tab" data-tab="cai" aria-selected="false" id="t-cai">Khách &amp; đại lý</button>
+  </nav>
+</header>
+
+<!-- NHẬN LÔ -->
+<section class="tab" id="tab-lo" hidden>
+  <div class="card">
+    <h2>Tin đại lý gửi</h2>
+    <div class="row">
+      <label>Đại lý<input id="l-dl" list="dl-daily" autocomplete="off"></label>
+      <label>Đầu mã<select id="l-pre"><option value="auto">Tự nhận (theo T11 / đại lý)</option><option value="PB1107">PB1107… (Hung, Tung, Thuận, Kha…)</option><option value="PB2005">PB2005… (Huy)</option></select></label>
+    </div>
+    <label>Dán nguyên tin nhắn (5 số cuối, mã đủ, có "=64", "kh = …" cũng được)<textarea id="l-in" spellcheck="false" style="min-height:110px"></textarea></label>
+    <p class="hint" id="l-note"></p>
+  </div>
+  <div class="card">
+    <div class="stats" id="l-stats"></div>
+    <div class="btns"><button class="btn" id="l-copy">Copy mã để check cước</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
+    <div class="tbl"><table id="l-tbl"></table></div>
+    <div id="l-group" class="hint"></div>
+  </div>
+  <div class="card">
+    <h2>Ghi tên khách làm</h2>
+    <p class="hint">Chọn khách nhận lô này. Bấm chuyển sang Bank khách để tính tiền, hoặc copy dòng để ghi T11. Mã đã có người khác làm sẽ bị bỏ ra và báo tên.</p>
+    <div class="row">
+      <label>Khách làm<input id="l-name" list="dl-khach" autocomplete="off"></label>
+      <label>%<input id="l-rate" inputmode="decimal"></label>
+    </div>
+    <div class="btns"><button class="btn" id="l-tobank">Chuyển sang Bank khách</button><button class="btn ghost" id="l-t11">Copy dòng T11 (mã · tên · %)</button></div>
+  </div>
+</section>
+
+<!-- BANK KHÁCH -->
+<section class="tab" id="tab-bank">
+  <div class="card">
+    <h2>Mã khách làm</h2>
+    <div class="row">
+      <label>Khách<input id="b-name" list="dl-khach" autocomplete="off"></label>
+      <label>% mặc định<input id="b-rate" inputmode="decimal"></label>
+    </div>
+    <label>Dán mã + tiền (mỗi dòng 1 mã; có thể thêm % riêng, vd "PB20050018580 1.235.196 2,5%")<textarea id="b-in" spellcheck="false"></textarea></label>
+    <div class="row" style="align-items:end"><label>Nạp từ file Excel / CSV hoặc ảnh danh sách<input type="file" id="b-file" accept=".xlsx,.csv,.txt,image/*"></label></div>
+    <p class="hint" id="b-fnote">File Excel/CSV đọc được cả khi không có mạng. Ảnh: dùng được khi mở file trên máy và có mạng; nhanh nhất vẫn là Google Lens / Live Text rồi dán vào.</p>
+    <div class="row">
+      <label>Đã ứng (nếu có)<input id="b-ung" inputmode="numeric" placeholder="0"></label>
+      <label>Trừ lại (nếu có)<input id="b-tru" inputmode="numeric" placeholder="0"></label>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-weight:500"><input type="checkbox" id="b-lines" style="width:auto"> Ghi từng mã trong tin nhắn (tự bật khi các mã khác %)</label>
+    <p class="hint" id="b-note"></p>
+  </div>
+  <div class="card">
+    <div class="stats" id="b-stats"></div>
+    <div class="tbl"><table id="b-tbl"></table></div>
+  </div>
+  <div class="card">
+    <h2>Tin nhắn gửi Zalo</h2>
+    <pre class="msg" id="b-msg"></pre>
+    <div class="btns"><button class="btn" id="b-copy">Copy tin nhắn</button><button class="btn ghost" id="b-share" hidden>Gửi qua Zalo…</button><button class="btn ghost" id="b-copyt11">Copy dòng T11 (mã · tên · %)</button></div>
+  </div>
+  <div class="card imgbox">
+    <h2>Ảnh chi tiết</h2>
+    <p class="hint">Trên điện thoại: nhấn giữ ảnh → Lưu ảnh, rồi gửi qua Zalo.</p>
+    <img id="b-img" alt="Ảnh chi tiết bank khách">
+    <div class="btns"><button class="btn ghost" id="b-dl">Tải ảnh</button></div>
+  </div>
+</section>
+
+<!-- ĐẠI LÝ -->
+<section class="tab" id="tab-dl" hidden>
+  <div class="card">
+    <h2>Lô của đại lý</h2>
+    <div class="row">
+      <label>Đại lý<input id="d-name" list="dl-daily" autocomplete="off"></label>
+      <label>Tên lô (vd 11.11.26)<input id="d-lot"></label>
+      <label>Bậc phí<select id="d-tier"><option value="3">Bậc 3: &lt;400k 0,5% · 400k–1tr 0,6% · ≥1tr 1%</option><option value="2">Bậc 2: &lt;400k 0,5% · ≥400k 0,6%</option></select></label>
+    </div>
+    <label>Dán mã + tiền<textarea id="d-in" spellcheck="false"></textarea></label>
+    <div class="row" style="align-items:end"><label>Nạp từ file Excel / CSV hoặc ảnh danh sách<input type="file" id="d-file" accept=".xlsx,.csv,.txt,image/*"></label></div>
+    <p class="hint" id="d-fnote">File Excel/CSV đọc được cả khi không có mạng. Ảnh: dùng được khi mở file trên máy và có mạng; nhanh nhất vẫn là Google Lens / Live Text rồi dán vào.</p>
+    <div class="row">
+      <label>Trừ trả ĐL / khoản khác (nếu có)<input id="d-tru" inputmode="numeric" placeholder="0"></label>
+    </div>
+    <p class="hint" id="d-note"></p>
+  </div>
+  <div class="card">
+    <div class="stats" id="d-stats"></div>
+    <div class="tbl"><table id="d-tbl"></table></div>
+  </div>
+  <div class="card">
+    <h2>Tin nhắn gửi đại lý</h2>
+    <pre class="msg" id="d-msg"></pre>
+    <div class="btns"><button class="btn" id="d-copy">Copy tin nhắn</button><button class="btn ghost" id="d-share" hidden>Gửi qua Zalo…</button></div>
+  </div>
+  <div class="card imgbox">
+    <h2>Ảnh chi tiết</h2>
+    <img id="d-img" alt="Ảnh chi tiết thanh toán đại lý">
+    <div class="btns"><button class="btn ghost" id="d-dl">Tải ảnh</button></div>
+  </div>
+</section>
+
+<!-- CHECK CƯỚC -->
+<section class="tab" id="tab-chk" hidden>
+  <div class="card">
+    <h2>Trạm check cước (chạy trên trang otpsms)</h2>
+    <p class="hint">Bấm nút này trên trang Điện của otpsms (anh tự đăng nhập; nút không đụng tới mật khẩu). Trong khung hiện ra:</p>
+    <ol class="hint" style="margin:0;padding-left:20px;display:grid;gap:2px">
+      <li>Nhập đại lý (TUNG, HUY…) và ngày, dán nguyên tin đại lý gửi — 5 số cuối tự ghép thành mã đủ.</li>
+      <li><b>1. Check cước</b>: check hết danh sách (23 mã/lần), báo còn cước / 0đ / lỗi, đối chiếu "=64", "kh = …", dò mã đã có trong T11.</li>
+      <li><b>2. Tải Excel</b>: file "Tung 13.11.26.xlsx" dạng STT · Mã · Tổng tiền · Khách làm, mã trùng và 0đ ghi chú ở cuối, dòng tổng là số cố định.</li>
+      <li><b>3. Ghi vào T11</b>: chèn các mã mới vào cuối T11 trước dòng tổng, xếp tiền tăng dần, ghi cột F theo bậc, sửa công thức tổng. Bấm 2 lần để xác nhận.</li>
+      <li><b>Copy tin gửi (100 dòng)</b>: copy từng phần 100 dòng mã + tiền để gửi nhân viên.</li>
+    </ol>
+    <div class="btns"><a class="btn" id="k-link" href="javascript:%21function%28%29%7Bvar%20t%3D%22sds-tram%22%2Ce%3Ddocument.getElementById%28t%29%3Bif%28e%29e.remove%28%29%3Belse%7Bvar%20n%3D%22sds_tram_cfg%22%2Ca%3D%7B%7D%3Btry%7Ba%3DJSON.parse%28localStorage.getItem%28n%29%7C%7C%22%7B%7D%22%29%7Dcatch%28t%29%7B%7Dvar%20o%3Ddocument.getElementById%28%22CodeBill%22%29%2Cr%3D%22%230f7a55%22%2Cl%3Ddocument.createElement%28%22div%22%29%3Bl.id%3Dt%2Cl.style.cssText%3D%22position%3Afixed%3Bz-index%3A2147483647%3Binset%3A8px%3Bmax-width%3A720px%3Bmargin-left%3Aauto%3Boverflow%3Aauto%3Bbackground%3A%23fff%3Bcolor%3A%2318201d%3Bborder%3A2px%20solid%20%22%2Br%2B%22%3Bborder-radius%3A10px%3Bpadding%3A12px%3Bfont%3A14px%2F1.45%20system-ui%2CSegoe%20UI%2CArial%3Bbox-shadow%3A0%208px%2030px%20rgba%280%2C0%2C0%2C.25%29%22%3Bvar%20i%3Dfunction%28t%2Ce%2Cn%29%7Breturn%22%3Cbutton%20%22%2Bt%2B%27%20style%3D%22%27%2B%28n%3F%22background%3A%22%2Br%2B%22%3Bcolor%3A%23fff%3Bborder%3A0%22%3A%22background%3A%23fff%3Bcolor%3A%22%2Br%2B%22%3Bborder%3A1px%20solid%20%22%2Br%29%2B%27%3Bborder-radius%3A6px%3Bpadding%3A8px%2012px%3Bfont-weight%3A600%3Bcursor%3Apointer%22%3E%27%2Be%2B%22%3C%2Fbutton%3E%22%7D%2Cs%3D%22width%3A100%25%3Bbox-sizing%3Aborder-box%3Bborder%3A1px%20solid%20%23ccc%3Bborder-radius%3A6px%3Bpadding%3A7px%208px%3Bfont%3A14px%20system-ui%2CArial%22%2Cc%3Dnew%20Date%2Cd%3Dc.getDate%28%29%2B%22.%22%2B%28c.getMonth%28%29%2B1%29%2B%22.%22%2BString%28c.getFullYear%28%29%29.slice%282%29%3Bl.innerHTML%3D%27%3Cdiv%20style%3D%22display%3Aflex%3Bjustify-content%3Aspace-between%3Balign-items%3Acenter%22%3E%3Cb%20style%3D%22font-size%3A17px%22%3ETr%E1%BA%A1m%20check%20c%C6%B0%E1%BB%9Bc%3C%2Fb%3E%3Cspan%3E%27%2Bi%28%22data-cfgbtn%22%2C%22C%C3%A0i%20%C4%91%E1%BA%B7t%22%29%2B%22%20%22%2Bi%28%22data-x%22%2C%22%C4%90%C3%B3ng%22%29%2B%27%3C%2Fspan%3E%3C%2Fdiv%3E%3Cdiv%20data-cfg%20style%3D%22display%3Anone%3Bmargin-top%3A8px%3Bpadding%3A8px%3Bbackground%3A%23f3f5f4%3Bborder-radius%3A6px%22%3E%3Cdiv%3ELink%20Apps%20Script%20T11%3C%2Fdiv%3E%3Cinput%20data-url%20style%3D%22%27%2Bs%2B%27%22%20placeholder%3D%22https%3A%2F%2Fscript.google.com%2Fmacros%2Fs%2F%E2%80%A6%2Fexec%22%3E%3Cdiv%20style%3D%22margin-top%3A6px%22%3EM%C3%A3%20b%C3%AD%20m%E1%BA%ADt%3C%2Fdiv%3E%3Cinput%20data-key%20style%3D%22%27%2Bs%2B%27%22%3E%3Cdiv%20style%3D%22margin-top%3A6px%22%3E%27%2Bi%28%22data-save%22%2C%22L%C6%B0u%22%2C1%29%2B%22%20%22%2Bi%28%22data-test%22%2C%22Th%E1%BB%AD%20k%E1%BA%BFt%20n%E1%BB%91i%22%29%2B%22%3C%2Fdiv%3E%3C%2Fdiv%3E%22%2B%28o%3F%22%22%3A%27%3Cp%20style%3D%22color%3A%23b42318%22%3ECh%C6%B0a%20%E1%BB%9F%20trang%20%C4%90i%E1%BB%87n%20c%E1%BB%A7a%20otpsms%20ho%E1%BA%B7c%20ch%C6%B0a%20%C4%91%C4%83ng%20nh%E1%BA%ADp.%20Anh%20m%E1%BB%9F%20trang%20%C4%90i%E1%BB%87n%2C%20%C4%91%C4%83ng%20nh%E1%BA%ADp%2C%20r%E1%BB%93i%20b%E1%BA%A5m%20l%E1%BA%A1i%20n%C3%BAt.%3C%2Fp%3E%27%29%2B%27%3Cdiv%20style%3D%22display%3Aflex%3Bgap%3A8px%3Bmargin-top%3A8px%3Bflex-wrap%3Awrap%22%3E%3Clabel%20style%3D%22flex%3A1%201%20120px%22%3E%C4%90%E1%BA%A1i%20l%C3%BD%3Cinput%20data-dl%20style%3D%22%27%2Bs%2B%27%22%20placeholder%3D%22TUNG%22%3E%3C%2Flabel%3E%3Clabel%20style%3D%22flex%3A1%201%20120px%22%3ENg%C3%A0y%3Cinput%20data-day%20style%3D%22%27%2Bs%2B%27%22%20value%3D%22%27%2Bd%2B%27%22%3E%3C%2Flabel%3E%3Clabel%20style%3D%22flex%3A1%201%20160px%22%3EB%E1%BA%ADc%20ph%C3%AD%20%28c%E1%BB%99t%20F%29%3Cselect%20data-tier%20style%3D%22%27%2Bs%2B%27%22%3E%3Coption%20value%3D%22auto%22%3ET%E1%BB%B1%20theo%20%C4%91%E1%BA%A1i%20l%C3%BD%3C%2Foption%3E%3Coption%20value%3D%223%22%3EB%E1%BA%ADc%203%3C%2Foption%3E%3Coption%20value%3D%222%22%3EB%E1%BA%ADc%202%3C%2Foption%3E%3C%2Fselect%3E%3C%2Flabel%3E%3C%2Fdiv%3E%3Ctextarea%20data-in%20placeholder%3D%22D%C3%A1n%20nguy%C3%AAn%20tin%20%C4%91%E1%BA%A1i%20l%C3%BD%20g%E1%BB%ADi%20%285%20s%E1%BB%91%20cu%E1%BB%91i%20ho%E1%BA%B7c%20m%C3%A3%20%C4%91%E1%BB%A7%2C%20c%C3%B3%20%3D64%2C%20kh%20%3D%20%E2%80%A6%20c%C5%A9ng%20%C4%91%C6%B0%E1%BB%A3c%29%22%20style%3D%22%27%2Bs%2B%27%3Bmin-height%3A110px%3Bmargin-top%3A8px%3Bfont-family%3Aui-monospace%2CConsolas%2Cmonospace%22%3E%3C%2Ftextarea%3E%3Cdiv%20style%3D%22display%3Aflex%3Bgap%3A6px%3Bflex-wrap%3Awrap%3Bmargin-top%3A8px%22%3E%27%2Bi%28%22data-go%22%2C%221.%20Check%20c%C6%B0%E1%BB%9Bc%22%2C1%29%2Bi%28%22data-xl%22%2C%222.%20T%E1%BA%A3i%20Excel%22%29%2Bi%28%22data-t11%22%2C%223.%20Ghi%20v%C3%A0o%20T11%22%29%2Bi%28%22data-msg%22%2C%22Copy%20tin%20g%E1%BB%ADi%20%28100%20d%C3%B2ng%29%22%29%2B%27%3C%2Fdiv%3E%3Cdiv%20data-st%20style%3D%22margin-top%3A8px%3Bcolor%3A%235d6b66%22%3E%3C%2Fdiv%3E%3Cdiv%20data-sum%20style%3D%22margin-top%3A4px%22%3E%3C%2Fdiv%3E%3Cdiv%20data-out%20style%3D%22margin-top%3A6px%3Boverflow-x%3Aauto%22%3E%3C%2Fdiv%3E%27%2Cdocument.body.appendChild%28l%29%3Bvar%20p%3Dfunction%28t%29%7Breturn%20l.querySelector%28t%29%7D%3Bp%28%22%5Bdata-url%5D%22%29.value%3Da.url%7C%7C%22%22%2Cp%28%22%5Bdata-key%5D%22%29.value%3Da.key%7C%7C%22%22%2Ca.dl%26%26%28p%28%22%5Bdata-dl%5D%22%29.value%3Da.dl%29%2Cp%28%22%5Bdata-x%5D%22%29.onclick%3Dfunction%28%29%7Bl.remove%28%29%7D%2Cp%28%22%5Bdata-cfgbtn%5D%22%29.onclick%3Dfunction%28%29%7Bvar%20t%3Dp%28%22%5Bdata-cfg%5D%22%29%3Bt.style.display%3D%22none%22%3D%3Dt.style.display%3F%22block%22%3A%22none%22%7D%2Cp%28%22%5Bdata-save%5D%22%29.onclick%3Dfunction%28%29%7Ba.url%3Dp%28%22%5Bdata-url%5D%22%29.value.trim%28%29%2Ca.key%3Dp%28%22%5Bdata-key%5D%22%29.value.trim%28%29%2ClocalStorage.setItem%28n%2CJSON.stringify%28a%29%29%2Cy%28%22%C4%90%C3%A3%20l%C6%B0u%20c%C3%A0i%20%C4%91%E1%BA%B7t.%22%29%7D%2Cp%28%22%5Bdata-test%5D%22%29.onclick%3Dasync%20function%28%29%7Btry%7Bvar%20t%3Dawait%20C%28%7Baction%3A%22ping%22%7D%29%3By%28t.ok%3F%22K%E1%BA%BFt%20n%E1%BB%91i%20T11%20%C4%91%C6%B0%E1%BB%A3c%3A%20%22%2B%28t.name%7C%7C%22OK%22%29%3A%22L%E1%BB%97i%3A%20%22%2Bt.err%29%7Dcatch%28t%29%7By%28%22Kh%C3%B4ng%20k%E1%BA%BFt%20n%E1%BB%91i%20%C4%91%C6%B0%E1%BB%A3c%20Apps%20Script%3A%20%22%2Bt.message%29%7D%7D%3Bvar%20m%3Dfunction%28t%29%7Bvar%20e%3DString%28t%7C%7C%22%22%29.replace%28%2F%5B%5E%5Cd%5D%2Fg%2C%22%22%29%3Breturn%20e%3FparseInt%28e%2C10%29%3A0%7D%2Ch%3Dfunction%28t%29%7Breturn%20String%28Math.round%28t%29%29.replace%28%2F%5CB%28%3F%3D%28%5Cd%7B3%7D%29%2B%28%3F%21%5Cd%29%29%2Fg%2C%22.%22%29%7D%2Cu%3D%5B%22KHA%22%2C%22SANG%22%2C%22THUAN%22%2C%22TRI%22%2C%22NAM%22%5D%2Cf%3D%5B%5D%2Cg%3D%7B%7D%3Bp%28%22%5Bdata-go%5D%22%29.onclick%3Dasync%20function%28%29%7Bif%28o%29%7Bvar%20t%3Dp%28%22%5Bdata-dl%5D%22%29.value.trim%28%29.toUpperCase%28%29.replace%28%2F%5Cs%2B%2Fg%2C%22%22%29%3Ba.dl%3Dt%2ClocalStorage.setItem%28n%2CJSON.stringify%28a%29%29%3Bvar%20e%2Cr%2Cl%2Ci%3D%28e%3Dp%28%22%5Bdata-in%5D%22%29.value%2Cr%3D%28%28e%3DString%28e%7C%7C%22%22%29%29.match%28%2F%3D%5Cs%2A%28%5Cd%7B1%2C4%7D%29%28%3F%21%5Cd%29%2F%29%7C%7C%5B%5D%29%5B1%5D%2Cl%3D%28e.match%28%2Fkh%5Cs%2A%5B%3A%3D%5D%3F%5Cs%2A%28%5Cd%5B%5Cd.%2C%5D%7B3%2C%7D%29%2Fi%29%7C%7C%5B%5D%29%5B1%5D%2C%7Btk%3A%28e%3De.replace%28%2F%3D%5Cs%2A%5Cd%7B1%2C4%7D%28%3F%21%5Cd%29%2Fg%2C%22%20%22%29.replace%28%2Fkh%5Cs%2A%5B%3A%3D%5D%3F%5Cs%2A%5Cd%5B%5Cd.%2C%5D%7B3%2C%7D%2Fgi%2C%22%20%22%29%29.toUpperCase%28%29.match%28%2F%5BA-Z%5D%7B2%7D%5Cd%7B11%7D%7C%5Cd%7B4%2C7%7D%2Fg%29%7C%7C%5B%5D%2CexpN%3Ar%3F%2Br%3Anull%2CexpT%3Al%3Fm%28l%29%3Anull%7D%29%2Cs%3D%7B%7D%2Cc%3D%5B%5D%3Bif%28i.tk.forEach%28%28function%28e%29%7Bvar%20n%3Dfunction%28t%2Ce%29%7Breturn%2F%5E%5BA-Z%5D%2F.test%28t%29%3Ft%3A%28%22HUY%22%3D%3De%3F%22PB2005%22%3A%22PB1107%22%29%2B%28%220000000%22%2Bt%29.slice%28-7%29%7D%28e%2Ct%29%3Bs%5Bn%5D%7C%7C%28s%5Bn%5D%3D1%2Cc.push%28n%29%29%7D%29%29%2Cg%3D%7BexpN%3Ai.expN%2CexpT%3Ai.expT%2Cdl%3At%2Cday%3Ap%28%22%5Bdata-day%5D%22%29.value.trim%28%29%7D%2Cc.length%29%7Bvar%20d%3Do.form%7C%7Co.closest%28%22form%22%29%2Ch%3Dd%26%26d.getAttribute%28%22action%22%29%7C%7C%22%2Felectric%2FCheckBill%22%3Bf%3D%5B%5D%2Cp%28%22%5Bdata-go%5D%22%29.disabled%3D%210%3Bfor%28var%20u%3D0%3Bu%3Cc.length%3Bu%2B%3D23%29%7Bvar%20x%3Dc.slice%28u%2Cu%2B23%29%3By%28%22%C4%90ang%20check%20%22%2BMath.min%28u%2B23%2Cc.length%29%2B%22%20%2F%20%22%2Bc.length%2B%22%E2%80%A6%22%29%3Btry%7Bo.value%3Dx.join%28%22%5Cn%22%29%3Bvar%20v%3Dd%3Fnew%20FormData%28d%29%3Anew%20FormData%3Bd%7C%7Cv.append%28%22CodeBill%22%2Co.value%29%3Bvar%20k%3Dawait%20fetch%28h%2C%7Bmethod%3A%22POST%22%2Cbody%3Av%2Ccredentials%3A%22include%22%7D%29%2Cb%3Dawait%20k.text%28%29%3Bif%28%2Faccount%5C%2Flogin%2Fi.test%28k.url%29%29%7By%28%22H%E1%BA%BFt%20phi%C3%AAn%20%C4%91%C4%83ng%20nh%E1%BA%ADp.%20Anh%20%C4%91%C4%83ng%20nh%E1%BA%ADp%20l%E1%BA%A1i%20r%E1%BB%93i%20b%E1%BA%A5m%20Check.%22%29%3Bbreak%7Df%3Df.concat%28T%28b%2Cx%29%29%7Dcatch%28t%29%7Bf%3Df.concat%28x.map%28%28function%28t%29%7Breturn%7Bcode%3At%2Crem%3Anull%2Cst%3A%22L%E1%BB%97i%20m%E1%BA%A1ng%22%7D%7D%29%29%29%7Dw%28%29%2Cawait%20new%20Promise%28%28function%28t%29%7BsetTimeout%28t%2C400%29%7D%29%29%7Dif%28p%28%22%5Bdata-go%5D%22%29.disabled%3D%211%2Ca.url%26%26a.key%29try%7By%28%22%C4%90ang%20d%C3%B2%20tr%C3%B9ng%20v%E1%BB%9Bi%20T11%E2%80%A6%22%29%3Bvar%20S%3Dawait%20C%28%7Baction%3A%22check%22%2Ccodes%3Af.map%28%28function%28t%29%7Breturn%20t.code%7D%29%29%7D%29%3BS.ok%26%26f.forEach%28%28function%28t%29%7Bvar%20e%3DS.found%5Bt.code%5D%3Be%26%26%28t.t11%3De%5B0%5D%29%7D%29%29%7Dcatch%28t%29%7B%7Dw%28%29%2Cy%28%22Xong%20%22%2Bf.length%2B%22%20m%C3%A3.%20B%C6%B0%E1%BB%9Bc%20ti%E1%BA%BFp%3A%20T%E1%BA%A3i%20Excel%2C%20Ghi%20v%C3%A0o%20T11.%22%29%7Delse%20y%28%22Ch%C6%B0a%20c%C3%B3%20m%C3%A3%20n%C3%A0o.%22%29%7Delse%20y%28%22Ch%C6%B0a%20%E1%BB%9F%20trang%20%C4%90i%E1%BB%87n%20c%E1%BB%A7a%20otpsms.%22%29%7D%3Bvar%20x%3Dfunction%28%29%7Bfor%28var%20t%3D%5B%5D%2Ce%3D0%3Be%3C256%3Be%2B%2B%29%7Bfor%28var%20n%3De%2Ca%3D0%3Ba%3C8%3Ba%2B%2B%29n%3D1%26n%3F3988292384%5En%3E%3E%3E1%3An%3E%3E%3E1%3Bt%5Be%5D%3Dn%3E%3E%3E0%7Dreturn%20t%7D%28%29%3Bp%28%22%5Bdata-xl%5D%22%29.onclick%3Dfunction%28%29%7Bif%28f.length%29%7Bvar%20t%2Ce%2Cn%2Ca%2Co%2Cr%3DS%28%29%2Cl%3Dfunction%28t%2Ce%29%7Bvar%20n%3D%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3Cworksheet%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fspreadsheetml%2F2006%2Fmain%22%3E%3Ccols%3E%3Ccol%20min%3D%221%22%20max%3D%221%22%20width%3D%228%22%20customWidth%3D%221%22%2F%3E%3Ccol%20min%3D%222%22%20max%3D%222%22%20width%3D%2218%22%20customWidth%3D%221%22%2F%3E%3Ccol%20min%3D%223%22%20max%3D%223%22%20width%3D%2214%22%20customWidth%3D%221%22%2F%3E%3Ccol%20min%3D%224%22%20max%3D%224%22%20width%3D%2234%22%20customWidth%3D%221%22%2F%3E%3C%2Fcols%3E%3CsheetData%3E%27%2Be.map%28%28function%28t%2Ce%29%7Breturn%27%3Crow%20r%3D%22%27%2B%28e%2B1%29%2B%27%22%3E%27%2Bt.map%28%28function%28t%2Cn%29%7Bif%28null%3D%3Dt%7C%7C%22%22%3D%3D%3Dt%29return%22%22%3Bvar%20a%3D%22object%22%3D%3Dtypeof%20t%3Ft%3A%7Bv%3At%7D%2Co%3D%22ABCD%22%5Bn%5D%2B%28e%2B1%29%2Cr%3Da.s%3F%27%20s%3D%22%27%2Ba.s%2B%27%22%27%3A%22%22%3Breturn%22number%22%3D%3Dtypeof%20a.v%3F%27%3Cc%20r%3D%22%27%2Bo%2B%27%22%27%2Br%2B%22%3E%3Cv%3E%22%2Ba.v%2B%22%3C%2Fv%3E%3C%2Fc%3E%22%3A%27%3Cc%20r%3D%22%27%2Bo%2B%27%22%20t%3D%22inlineStr%22%27%2Br%2B%22%3E%3Cis%3E%3Ct%3E%22%2BI%28a.v%29%2B%22%3C%2Ft%3E%3C%2Fis%3E%3C%2Fc%3E%22%7D%29%29.join%28%22%22%29%2B%22%3C%2Frow%3E%22%7D%29%29.join%28%22%22%29%2B%22%3C%2FsheetData%3E%3C%2Fworksheet%3E%22%3Breturn%20A%28%5B%5B%22%5BContent_Types%5D.xml%22%2C%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3CTypes%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fpackage%2F2006%2Fcontent-types%22%3E%3CDefault%20Extension%3D%22rels%22%20ContentType%3D%22application%2Fvnd.openxmlformats-package.relationships%2Bxml%22%2F%3E%3CDefault%20Extension%3D%22xml%22%20ContentType%3D%22application%2Fxml%22%2F%3E%3COverride%20PartName%3D%22%2Fxl%2Fworkbook.xml%22%20ContentType%3D%22application%2Fvnd.openxmlformats-officedocument.spreadsheetml.sheet.main%2Bxml%22%2F%3E%3COverride%20PartName%3D%22%2Fxl%2Fworksheets%2Fsheet1.xml%22%20ContentType%3D%22application%2Fvnd.openxmlformats-officedocument.spreadsheetml.worksheet%2Bxml%22%2F%3E%3COverride%20PartName%3D%22%2Fxl%2Fstyles.xml%22%20ContentType%3D%22application%2Fvnd.openxmlformats-officedocument.spreadsheetml.styles%2Bxml%22%2F%3E%3C%2FTypes%3E%27%5D%2C%5B%22_rels%2F.rels%22%2C%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3CRelationships%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fpackage%2F2006%2Frelationships%22%3E%3CRelationship%20Id%3D%22rId1%22%20Type%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2FofficeDocument%2F2006%2Frelationships%2FofficeDocument%22%20Target%3D%22xl%2Fworkbook.xml%22%2F%3E%3C%2FRelationships%3E%27%5D%2C%5B%22xl%2Fworkbook.xml%22%2C%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3Cworkbook%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fspreadsheetml%2F2006%2Fmain%22%20xmlns%3Ar%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2FofficeDocument%2F2006%2Frelationships%22%3E%3Csheets%3E%3Csheet%20name%3D%22%27%2BI%28t.slice%280%2C31%29%29%2B%27%22%20sheetId%3D%221%22%20r%3Aid%3D%22rId1%22%2F%3E%3C%2Fsheets%3E%3C%2Fworkbook%3E%27%5D%2C%5B%22xl%2F_rels%2Fworkbook.xml.rels%22%2C%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3CRelationships%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fpackage%2F2006%2Frelationships%22%3E%3CRelationship%20Id%3D%22rId1%22%20Type%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2FofficeDocument%2F2006%2Frelationships%2Fworksheet%22%20Target%3D%22worksheets%2Fsheet1.xml%22%2F%3E%3CRelationship%20Id%3D%22rId2%22%20Type%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2FofficeDocument%2F2006%2Frelationships%2Fstyles%22%20Target%3D%22styles.xml%22%2F%3E%3C%2FRelationships%3E%27%5D%2C%5B%22xl%2Fstyles.xml%22%2C%27%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%20standalone%3D%22yes%22%3F%3E%3CstyleSheet%20xmlns%3D%22http%3A%2F%2Fschemas.openxmlformats.org%2Fspreadsheetml%2F2006%2Fmain%22%3E%3Cfonts%20count%3D%222%22%3E%3Cfont%3E%3Csz%20val%3D%2211%22%2F%3E%3Cname%20val%3D%22Calibri%22%2F%3E%3C%2Ffont%3E%3Cfont%3E%3Cb%2F%3E%3Csz%20val%3D%2211%22%2F%3E%3Cname%20val%3D%22Calibri%22%2F%3E%3C%2Ffont%3E%3C%2Ffonts%3E%3Cfills%20count%3D%222%22%3E%3Cfill%3E%3CpatternFill%20patternType%3D%22none%22%2F%3E%3C%2Ffill%3E%3Cfill%3E%3CpatternFill%20patternType%3D%22gray125%22%2F%3E%3C%2Ffill%3E%3C%2Ffills%3E%3Cborders%20count%3D%221%22%3E%3Cborder%2F%3E%3C%2Fborders%3E%3CcellStyleXfs%20count%3D%221%22%3E%3Cxf%2F%3E%3C%2FcellStyleXfs%3E%3CcellXfs%20count%3D%224%22%3E%3Cxf%2F%3E%3Cxf%20fontId%3D%221%22%20applyFont%3D%221%22%2F%3E%3Cxf%20numFmtId%3D%223%22%20applyNumberFormat%3D%221%22%2F%3E%3Cxf%20numFmtId%3D%223%22%20fontId%3D%221%22%20applyNumberFormat%3D%221%22%20applyFont%3D%221%22%2F%3E%3C%2FcellXfs%3E%3C%2FstyleSheet%3E%27%5D%2C%5B%22xl%2Fworksheets%2Fsheet1.xml%22%2Cn%5D%5D%29%7D%28r%2C%28t%3DN%28%29%2Ce%3Df.filter%28%28function%28t%29%7Breturn%22zero%22%3D%3Db%28t%29%7D%29%29%2Cn%3D%5B%5B%7Bv%3A%22STT%22%2Cs%3A1%7D%2C%7Bv%3A%22M%C3%A3%20h%C3%B3a%20%C4%91%C6%A1n%22%2Cs%3A1%7D%2C%7Bv%3A%22T%E1%BB%95ng%20ti%E1%BB%81n%22%2Cs%3A1%7D%2C%7Bv%3A%22Kh%C3%A1ch%20l%C3%A0m%22%2Cs%3A1%7D%5D%5D%2Ca%3D0%2Co%3D0%2Ct.filter%28%28function%28t%29%7Breturn%21t.t11%7D%29%29.forEach%28%28function%28t%29%7Ba%2B%2B%2Co%2B%3Dt.rem%2Cn.push%28%5Ba%2Ct.code%2C%7Bv%3At.rem%2Cs%3A2%7D%2C%22%22%5D%29%7D%29%29%2Ct.filter%28%28function%28t%29%7Breturn%20t.t11%7D%29%29.forEach%28%28function%28t%29%7Ba%2B%2B%2Cn.push%28%5Ba%2Ct.code%2C%7Bv%3At.rem%2Cs%3A2%7D%2C%22Tr%C3%B9ng%20T11%20d%C3%B2ng%20%22%2Bt.t11.row%2B%28t.t11.d%3F%22%20%28%22%2Bt.t11.d%2B%22%29%22%3A%22%22%29%2B%22%2C%20kh%C3%B4ng%20t%C3%ADnh%22%5D%29%7D%29%29%2Ce.forEach%28%28function%28t%29%7Ba%2B%2B%2Cn.push%28%5Ba%2Ct.code%2C%22%22%2C%22%C4%90%C3%A3%20thanh%20to%C3%A1n%20%280%C4%91%29%2C%20kh%C3%B4ng%20t%C3%ADnh%22%5D%29%7D%29%29%2Cn.push%28%5B%22%22%2C%7Bv%3A%22T%E1%BB%95ng%22%2Cs%3A1%7D%2C%7Bv%3Ao%2Cs%3A3%7D%2C%22%22%5D%29%2Cn%29%29%2Ci%3Ddocument.createElement%28%22a%22%29%3Bi.href%3DURL.createObjectURL%28l%29%2Ci.download%3Dr.replace%28%2F%5E%28%5Cw%29%28%5Cw%2A%29%2F%2C%28function%28t%2Ce%2Cn%29%7Breturn%20e%2Bn.toLowerCase%28%29%7D%29%29%2B%22.xlsx%22%2Cdocument.body.appendChild%28i%29%2Ci.click%28%29%2Ci.remove%28%29%2Cy%28%22%C4%90%C3%A3%20t%E1%BA%A3i%20file%20%22%2Bi.download%29%7Delse%20y%28%22Check%20c%C6%B0%E1%BB%9Bc%20tr%C6%B0%E1%BB%9Bc%20%C4%91%C3%A3.%22%29%7D%3Bvar%20v%3D0%3Bp%28%22%5Bdata-t11%5D%22%29.onclick%3Dasync%20function%28%29%7Bvar%20t%3DN%28%29.filter%28%28function%28t%29%7Breturn%21t.t11%7D%29%29%3Bif%28t.length%29%7Bvar%20e%3Dfunction%28t%2Ce%29%7Bvar%20n%3Dp%28%22%5Bdata-tier%5D%22%29.value%3Bif%28%22auto%22%21%3Dn%29return%2Bn%3Bif%28%22HUY%22%3D%3Dt%29return%203%3Bif%28%22HUNG%22%3D%3Dt%7C%7C%22TUNG%22%3D%3Dt%29return%202%3Bvar%20a%3DparseInt%28e%2C10%29%3Breturn%20u.indexOf%28t%29%3E%3D0%26%26a%3C%3D4%3F3%3A2%7D%28g.dl%2Cg.day%29%3Bif%28%21v%29return%20v%3D1%2Cy%28%22S%E1%BA%BD%20ghi%20%22%2Bt.length%2B%27%20m%C3%A3%20c%C3%B2n%20c%C6%B0%E1%BB%9Bc%20v%C3%A0o%20cu%E1%BB%91i%20T11%20%28tr%C6%B0%E1%BB%9Bc%20d%C3%B2ng%20t%E1%BB%95ng%29%2C%20l%C3%B4%20%22%27%2BS%28%29%2B%27%22%2C%20b%E1%BA%ADc%20%27%2Be%2B%27.%20B%E1%BA%A5m%20%223.%20Ghi%20v%C3%A0o%20T11%22%20l%E1%BA%A7n%20n%E1%BB%AFa%20%C4%91%E1%BB%83%20x%C3%A1c%20nh%E1%BA%ADn.%27%29%2Cvoid%20setTimeout%28%28function%28%29%7Bv%3D0%7D%29%2C15e3%29%3Bv%3D0%2Cy%28%22%C4%90ang%20ghi%20v%C3%A0o%20T11%E2%80%A6%22%29%3Btry%7Bvar%20n%3Dawait%20C%28%7Baction%3A%22insert%22%2Crows%3At.map%28%28function%28t%29%7Breturn%5BS%28%29%2Ct.code%2Ct.rem%2Ck%28t.rem%2Ce%29%5D%7D%29%29%7D%29%3By%28n.ok%3F%22%C4%90%C3%A3%20ghi%20%22%2Bn.added%2B%22%20m%C3%A3%20v%C3%A0o%20T11%20%28d%C3%B2ng%20%22%2Bn.from%2B%22%E2%80%93%22%2Bn.to%2B%22%29%22%2B%28n.skipped%3F%22%2C%20b%E1%BB%8F%20%22%2Bn.skipped%2B%22%20m%C3%A3%20%C4%91%C3%A3%20c%C3%B3%22%3A%22%22%29%2B%22.%20D%C3%B2ng%20t%E1%BB%95ng%20%C4%91%C3%A3%20c%E1%BA%ADp%20nh%E1%BA%ADt.%22%3A%22L%E1%BB%97i%3A%20%22%2Bn.err%29%7Dcatch%28t%29%7By%28%22Kh%C3%B4ng%20ghi%20%C4%91%C6%B0%E1%BB%A3c%3A%20%22%2Bt.message%29%7D%7Delse%20y%28%22Kh%C3%B4ng%20c%C3%B3%20m%C3%A3%20m%E1%BB%9Bi%20%C4%91%E1%BB%83%20ghi.%22%29%7D%2Cp%28%22%5Bdata-msg%5D%22%29.onclick%3Dfunction%28%29%7Bvar%20t%3DN%28%29.filter%28%28function%28t%29%7Breturn%21t.t11%7D%29%29%3Bif%28t.length%29%7Bfor%28var%20e%3Dt.map%28%28function%28t%29%7Breturn%20t.code%2B%22%20%22%2Bh%28t.rem%29%7D%29%29%2Cn%3D%5B%5D%2Ca%3D0%3Ba%3Ce.length%3Ba%2B%3D100%29n.push%28e.slice%28a%2Ca%2B100%29.join%28%22%5Cn%22%29%29%3Bvar%20o%3D%2B%28l.dataset.chunk%7C%7C0%29%25n.length%2Cr%3Dn%5Bo%5D%3Bl.dataset.chunk%3Do%2B1%3Bvar%20i%3Dfunction%28%29%7By%28%22%C4%90%C3%A3%20copy%20ph%E1%BA%A7n%20%22%2B%28o%2B1%29%2B%22%2F%22%2Bn.length%2B%22%20%28%22%2Br.split%28%22%5Cn%22%29.length%2B%22%20d%C3%B2ng%29.%20B%E1%BA%A5m%20l%E1%BA%A1i%20%C4%91%E1%BB%83%20copy%20ph%E1%BA%A7n%20ti%E1%BA%BFp.%22%29%7D%3Bnavigator.clipboard%3Fnavigator.clipboard.writeText%28r%29.then%28i%2Cs%29%3As%28%29%7Delse%20y%28%22Check%20c%C6%B0%E1%BB%9Bc%20tr%C6%B0%E1%BB%9Bc%20%C4%91%C3%A3.%22%29%3Bfunction%20s%28%29%7Bvar%20t%3Ddocument.createElement%28%22textarea%22%29%3Bt.value%3Dr%2Cl.appendChild%28t%29%2Ct.select%28%29%2Cdocument.execCommand%28%22copy%22%29%2Ct.remove%28%29%2Ci%28%29%7D%7D%7Dfunction%20y%28t%29%7Bp%28%22%5Bdata-st%5D%22%29.textContent%3Dt%7Dfunction%20k%28t%2Ce%29%7Breturn%20t%3C4e5%3F.005%3A2%3D%3De%7C%7Ct%3C1e6%3F.006%3A.01%7Dfunction%20b%28t%29%7Breturn%20null%3D%3Dt.rem%7C%7C%2Fl%E1%BB%97i%7Ckh%C3%B4ng%7Csai%7Cerror%7Cfail%2Fi.test%28t.st%29%26%26%21%2Fth%C3%A0nh%20c%C3%B4ng%2Fi.test%28t.st%29%3F%22err%22%3At.rem%3E0%3F%22ok%22%3A%22zero%22%7Dfunction%20T%28t%2Ce%29%7Bvar%20n%3D%28new%20DOMParser%29.parseFromString%28t%2C%22text%2Fhtml%22%29%2Ca%3D%7B%7D%3Breturn%20n.querySelectorAll%28%22tr%22%29.forEach%28%28function%28t%29%7Bvar%20e%3D%5B%5D.map.call%28t.querySelectorAll%28%22td%22%29%2C%28function%28t%29%7Breturn%20t.textContent.replace%28%2F%5Cs%2B%2Fg%2C%22%20%22%29.trim%28%29%7D%29%29%3Bif%28%21%28e.length%3C3%29%29%7Bfor%28var%20n%3Dnull%2Co%3D0%3Bo%3Ce.length%3Bo%2B%2B%29%7Bvar%20r%3De%5Bo%5D.toUpperCase%28%29.match%28%2F%5Cb%5BA-Z%5D%7B2%7D%5Cd%7B8%2C14%7D%5Cb%2F%29%3Bif%28r%29%7Bn%3Dr%5B0%5D%3Bbreak%7D%7Dn%26%26%28a%5Bn%5D%3D%7Bcode%3An%2Crem%3Anull%21%3De%5B4%5D%3Fm%28e%5B4%5D%29%3A0%2Cst%3Anull%21%3De%5B5%5D%3Fe%5B5%5D%3Ae%5Be.length-1%5D%7D%29%7D%7D%29%29%2Ce.map%28%28function%28t%29%7Breturn%20a%5Bt%5D%7C%7C%7Bcode%3At%2Crem%3Anull%2Cst%3A%22Kh%C3%B4ng%20c%C3%B3%20k%E1%BA%BFt%20qu%E1%BA%A3%22%7D%7D%29%29%7Dfunction%20w%28%29%7Bvar%20t%3D%7Bok%3A0%2Czero%3A0%2Cerr%3A0%7D%2Ce%3D0%2Cn%3D0%3Bf.forEach%28%28function%28a%29%7Bt%5Bb%28a%29%5D%2B%2B%2C%22ok%22%3D%3Db%28a%29%26%26%28e%2B%3Da.rem%29%2Ca.t11%26%26n%2B%2B%7D%29%29%2Cp%28%22%5Bdata-sum%5D%22%29.innerHTML%3D%22%3Cb%3E%22%2Bt.ok%2B%22%3C%2Fb%3E%20m%C3%A3%20c%C3%B2n%20c%C6%B0%E1%BB%9Bc%20%C2%B7%20t%E1%BB%95ng%20%3Cb%3E%22%2Bh%28e%29%2B%22%3C%2Fb%3E%20%C2%B7%20%22%2Bt.zero%2B%27%20m%C3%A3%200%C4%91%20%C2%B7%20%3Cspan%20style%3D%22color%3A%23b42318%22%3E%27%2Bt.err%2B%22%20l%E1%BB%97i%3C%2Fspan%3E%22%2B%28n%3F%27%20%C2%B7%20%3Cspan%20style%3D%22color%3A%23b4540a%22%3E%27%2Bn%2B%22%20m%C3%A3%20%C4%91%C3%A3%20c%C3%B3%20trong%20T11%3C%2Fspan%3E%22%3A%22%22%29%2B%28g.expN%26%26g.expN%21%3Df.length%3F%27%3Cbr%3E%3Cspan%20style%3D%22color%3A%23b42318%22%3ETin%20ghi%20%27%2Bg.expN%2B%22%20m%C3%A3%2C%20%C4%91%E1%BB%8Dc%20%C4%91%C6%B0%E1%BB%A3c%20%22%2Bf.length%2B%22.%3C%2Fspan%3E%22%3A%22%22%29%2B%28g.expT%26%26t.ok%3F%22%3Cbr%3ETin%20ghi%20kh%20%3D%20%22%2Bh%28g.expT%29%2B%28g.expT%3D%3De%3F%22%20%E2%80%94%20kh%E1%BB%9Bp.%22%3A%22%20%E2%80%94%20l%E1%BB%87ch%20%22%2Bh%28g.expT-e%29%2B%22.%22%29%3A%22%22%29%3Bvar%20a%3D%7Bok%3A%22%23e1f2ea%22%2Czero%3A%22%23f3f5f4%22%2Cerr%3A%22%23fbe4e1%22%7D%3Bp%28%22%5Bdata-out%5D%22%29.innerHTML%3D%27%3Ctable%20style%3D%22border-collapse%3Acollapse%3Bwidth%3A100%25%3Bfont-size%3A13px%22%3E%3Ctr%3E%3Cth%20style%3D%22text-align%3Aleft%3Bpadding%3A4px%22%3E%23%3C%2Fth%3E%3Cth%20style%3D%22text-align%3Aleft%3Bpadding%3A4px%22%3EM%C3%A3%3C%2Fth%3E%3Cth%20style%3D%22text-align%3Aright%3Bpadding%3A4px%22%3EC%C3%B2n%3C%2Fth%3E%3Cth%20style%3D%22text-align%3Aleft%3Bpadding%3A4px%22%3ETr%E1%BA%A1ng%20th%C3%A1i%3C%2Fth%3E%3Cth%20style%3D%22text-align%3Aleft%3Bpadding%3A4px%22%3ET11%3C%2Fth%3E%3C%2Ftr%3E%27%2Bf.map%28%28function%28t%2Ce%29%7Breturn%27%3Ctr%20style%3D%22background%3A%27%2Ba%5Bb%28t%29%5D%2B%27%22%3E%3Ctd%20style%3D%22padding%3A4px%22%3E%27%2B%28e%2B1%29%2B%27%3C%2Ftd%3E%3Ctd%20style%3D%22padding%3A4px%3Bfont-family%3Amonospace%22%3E%27%2Bt.code%2B%27%3C%2Ftd%3E%3Ctd%20style%3D%22padding%3A4px%3Btext-align%3Aright%3Bfont-family%3Amonospace%22%3E%27%2B%28null%3D%3Dt.rem%3F%22%22%3Ah%28t.rem%29%29%2B%27%3C%2Ftd%3E%3Ctd%20style%3D%22padding%3A4px%22%3E%27%2BString%28t.st%29.replace%28%2F%3C%2Fg%2C%22%26lt%3B%22%29%2B%27%3C%2Ftd%3E%3Ctd%20style%3D%22padding%3A4px%22%3E%27%2B%28t.t11%3F%22d%C3%B2ng%20%22%2Bt.t11.row%2B%28t.t11.d%3F%22%20%C2%B7%20%22%2Bt.t11.d%3A%22%22%29%3A%22%22%29%2B%22%3C%2Ftd%3E%3C%2Ftr%3E%22%7D%29%29.join%28%22%22%29%2B%22%3C%2Ftable%3E%22%7Dasync%20function%20C%28t%29%7Bif%28%21a.url%7C%7C%21a.key%29throw%20new%20Error%28%22ch%C6%B0a%20c%C3%A0i%20link%20Apps%20Script%20%28b%E1%BA%A5m%20C%C3%A0i%20%C4%91%E1%BA%B7t%29%22%29%3Breturn%20t.key%3Da.key%2C%28await%20fetch%28a.url%2C%7Bmethod%3A%22POST%22%2Cbody%3AJSON.stringify%28t%29%7D%29%29.json%28%29%7Dfunction%20S%28%29%7Breturn%28g.dl%7C%7C%22LO%22%29%2B%22%20%22%2Bg.day%7Dfunction%20N%28%29%7Breturn%20f.filter%28%28function%28t%29%7Breturn%22ok%22%3D%3Db%28t%29%7D%29%29.sort%28%28function%28t%2Ce%29%7Breturn%20t.rem-e.rem%7C%7C%28t.code%3Ce.code%3F-1%3A1%29%7D%29%29%7Dfunction%20A%28t%29%7Bvar%20e%3Dnew%20TextEncoder%2Cn%3D%5B%5D%2Ca%3D%5B%5D%2Co%3D0%3Bfunction%20r%28t%2Ce%29%7Bt.push%28255%26e%2Ce%3E%3E8%26255%29%7Dfunction%20l%28t%2Ce%29%7Bt.push%28255%26e%2Ce%3E%3E8%26255%2Ce%3E%3E16%26255%2Ce%3E%3E%3E24%26255%29%7Dt.forEach%28%28function%28t%29%7Bvar%20i%3De.encode%28t%5B0%5D%29%2Cs%3De.encode%28t%5B1%5D%29%2Cc%3Dfunction%28t%29%7Bfor%28var%20e%3D4294967295%2Cn%3D0%3Bn%3Ct.length%3Bn%2B%2B%29e%3Dx%5B255%26%28e%5Et%5Bn%5D%29%5D%5Ee%3E%3E%3E8%3Breturn%284294967295%5Ee%29%3E%3E%3E0%7D%28s%29%2Cd%3D%5B%5D%3Bl%28d%2C67324752%29%2Cr%28d%2C20%29%2Cr%28d%2C2048%29%2Cr%28d%2C0%29%2Cr%28d%2C0%29%2Cr%28d%2C0%29%2Cl%28d%2Cc%29%2Cl%28d%2Cs.length%29%2Cl%28d%2Cs.length%29%2Cr%28d%2Ci.length%29%2Cr%28d%2C0%29%2Cn.push%28new%20Uint8Array%28d%29%2Ci%2Cs%29%3Bvar%20p%3D%5B%5D%3Bl%28p%2C33639248%29%2Cr%28p%2C20%29%2Cr%28p%2C20%29%2Cr%28p%2C2048%29%2Cr%28p%2C0%29%2Cr%28p%2C0%29%2Cr%28p%2C0%29%2Cl%28p%2Cc%29%2Cl%28p%2Cs.length%29%2Cl%28p%2Cs.length%29%2Cr%28p%2Ci.length%29%2Cr%28p%2C0%29%2Cr%28p%2C0%29%2Cr%28p%2C0%29%2Cr%28p%2C0%29%2Cl%28p%2C0%29%2Cl%28p%2Co%29%2Ca.push%28new%20Uint8Array%28p%29%2Ci%29%2Co%2B%3Dd.length%2Bi.length%2Bs.length%7D%29%29%3Bvar%20i%3Da.reduce%28%28function%28t%2Ce%29%7Breturn%20t%2Be.length%7D%29%2C0%29%2Cs%3D%5B%5D%3Breturn%20l%28s%2C101010256%29%2Cr%28s%2C0%29%2Cr%28s%2C0%29%2Cr%28s%2Ct.length%29%2Cr%28s%2Ct.length%29%2Cl%28s%2Ci%29%2Cl%28s%2Co%29%2Cr%28s%2C0%29%2Cnew%20Blob%28n.concat%28a%2C%5Bnew%20Uint8Array%28s%29%5D%29%2C%7Btype%3A%22application%2Fvnd.openxmlformats-officedocument.spreadsheetml.sheet%22%7D%29%7Dfunction%20I%28t%29%7Breturn%20String%28t%29.replace%28%2F%26%2Fg%2C%22%26amp%3B%22%29.replace%28%2F%3C%2Fg%2C%22%26lt%3B%22%29.replace%28%2F%3E%2Fg%2C%22%26gt%3B%22%29%7D%7D%28%29%3B" style="text-decoration:none">Trạm check SĐS</a><button class="btn ghost" id="k-copy">Copy mã của nút</button></div>
+    <pre class="msg" id="k-code" hidden></pre>
+  </div>
+  <div class="card">
+    <h2>Cài trên máy tính (Chrome)</h2>
+    <ol class="hint" style="margin:0;padding-left:20px;display:grid;gap:4px">
+      <li>Bật thanh dấu trang: Ctrl + Shift + B.</li>
+      <li>Kéo nút xanh <b>Trạm check SĐS</b> ở trên thả lên thanh dấu trang. Nếu kéo không được: bấm <b>Copy mã của nút</b>, chuột phải thanh dấu trang → Thêm trang… → Tên: <b>Trạm check SĐS</b>, URL: dán vào → Lưu.</li>
+      <li>Mở otpsms → trang Điện, đăng nhập, bấm dấu trang <b>Trạm check SĐS</b>.</li>
+      <li>Lần đầu: bấm <b>Cài đặt</b> trong khung, dán link Apps Script và mã bí mật (phần dưới), bấm Lưu rồi Thử kết nối.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2>Cài cầu nối ghi T11 (làm 1 lần, khoảng 3 phút)</h2>
+    <ol class="hint" style="margin:0;padding-left:20px;display:grid;gap:4px">
+      <li>Mở Google Sheet T11 → <b>Tiện ích mở rộng → Apps Script</b>.</li>
+      <li>Xóa hết chữ có sẵn, bấm <b>Copy mã Apps Script</b> bên dưới rồi dán vào. Sửa dòng <b>MA_BI_MAT</b> thành mã riêng của anh (vd "son2026dien"). Bấm Lưu (biểu tượng đĩa).</li>
+      <li>Bấm <b>Triển khai → Tùy chọn triển khai mới</b> → chọn loại <b>Ứng dụng web</b>. Thực thi với tư cách: <b>Tôi</b>. Người có quyền truy cập: <b>Bất kỳ ai</b>. Bấm Triển khai, cho phép quyền truy cập bằng tài khoản Google của anh.</li>
+      <li>Copy <b>URL ứng dụng web</b> (dạng https://script.google.com/macros/s/…/exec) → dán vào Cài đặt của Trạm check cùng mã bí mật.</li>
+    </ol>
+    <p class="hint">Ai không có mã bí mật thì không ghi được vào T11. Mã chỉ ghi thêm dòng mới, không xóa hay sửa dòng cũ; mã đã có trong T11 tự bỏ qua.</p>
+    <div class="btns"><button class="btn ghost" id="k-gs-copy">Copy mã Apps Script</button></div>
+    <pre class="msg" id="k-gs">// Sổ Điện Sơn — cầu nối ghi T11
+// Dán toàn bộ file này vào: Google Sheet T11 → Tiện ích mở rộng → Apps Script.
+// Đổi MA_BI_MAT thành mã riêng của anh (giống mã nhập trong Trạm check).
+const MA_BI_MAT = &#x27;doi-ma-nay-truoc-khi-dung&#x27;;
+
+function sheet_() { return SpreadsheetApp.getActiveSpreadsheet().getSheets()[0]; }
+function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+function doGet() { return out_({ ok: true, msg: &#x27;Cầu nối T11 đang chạy&#x27; }); }
+
+function doPost(e) {
+  let b;
+  try { b = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, err: &#x27;Dữ liệu gửi lên không đọc được&#x27; }); }
+  if (b.key !== MA_BI_MAT) return out_({ ok: false, err: &#x27;Sai mã bí mật&#x27; });
+  try {
+    if (b.action === &#x27;ping&#x27;) return out_({ ok: true, name: SpreadsheetApp.getActiveSpreadsheet().getName() });
+    if (b.action === &#x27;check&#x27;) return out_({ ok: true, found: lookup_(b.codes || []) });
+    if (b.action === &#x27;insert&#x27;) return out_(insert_(b.rows || []));
+    return out_({ ok: false, err: &#x27;Không rõ lệnh&#x27; });
+  } catch (err) { return out_({ ok: false, err: String(err.message || err) }); }
+}
+
+// Tìm mã đã có trong T11 → {MA: [{row, amount, d}]}
+function lookup_(codes) {
+  const s = sheet_(), last = s.getLastRow();
+  const v = s.getRange(1, 2, last, 3).getValues(); // B, C, D
+  const m = {};
+  v.forEach((r, i) =&gt; { const c = String(r[0]).trim().toUpperCase(); if (c) (m[c] = m[c] || []).push({ row: i + 1, amount: r[1], d: String(r[2] || &#x27;&#x27;) }); });
+  const o = {};
+  codes.forEach(c =&gt; { c = String(c).trim().toUpperCase(); if (m[c]) o[c] = m[c]; });
+  return o;
+}
+
+// Dòng tổng = dòng cuối cùng có công thức =SUM ở cột C
+function totalRow_(s) {
+  const last = s.getLastRow(), f = s.getRange(1, 3, last, 1).getFormulas();
+  for (let i = last - 1; i &gt;= 0; i--) if (/^=SUM\(/i.test(f[i][0])) return i + 1;
+  throw new Error(&#x27;Không tìm thấy dòng tổng (=SUM ở cột C)&#x27;);
+}
+
+// rows: [[lô, mã, tiền, %F], ...] → chèn trước dòng tổng, xếp tiền tăng dần, sửa công thức tổng
+function insert_(rows) {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const s = sheet_();
+    const exist = lookup_(rows.map(r =&gt; r[1]));
+    const seen = {};
+    const add = rows.filter(r =&gt; { const c = String(r[1]).trim().toUpperCase(); if (exist[c] || seen[c] || !(+r[2] &gt; 0)) return false; seen[c] = 1; return true; });
+    const skipped = rows.length - add.length;
+    if (!add.length) return { ok: true, added: 0, skipped: skipped };
+    add.sort((a, b) =&gt; a[2] - b[2]);
+    const tr = totalRow_(s), n = add.length;
+    s.insertRowsBefore(tr, n);
+    const start = tr, ref = tr - 1;
+    s.getRange(ref, 1, 1, 7).copyTo(s.getRange(start, 1, n, 7), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    s.getRange(start, 1, n, 4).setBackground(null);
+    s.getRange(start, 1, n, 3).setValues(add.map(r =&gt; [r[0], String(r[1]).trim().toUpperCase(), +r[2]]));
+    s.getRange(start, 6, n, 1).setValues(add.map(r =&gt; [+r[3]]));
+    const ntr = tr + n;
+    s.getRange(ntr, 3).setFormula(&#x27;=SUM(C1:C&#x27; + (ntr - 1) + &#x27;)&#x27;);
+    if (/^=SUM\(/i.test(s.getRange(ntr, 7).getFormula())) s.getRange(ntr, 7).setFormula(&#x27;=SUM(G1:G&#x27; + (ntr - 1) + &#x27;)&#x27;);
+    return { ok: true, added: n, skipped: skipped, from: start, to: start + n - 1 };
+  } finally { lock.releaseLock(); }
+}
+</pre>
+  </div>
+  <div class="card">
+    <h2>Cài trên điện thoại Android (Chrome)</h2>
+    <ol class="hint" style="margin:0;padding-left:20px;display:grid;gap:4px">
+      <li>Bấm <b>Copy mã của nút</b>.</li>
+      <li>Trong Chrome, mở trang bất kỳ → ⋮ → ☆ (thêm dấu trang) → Sửa: đặt tên <b>sdstram</b>, ô URL xóa hết rồi dán mã vào → Lưu.</li>
+      <li>Mở otpsms trang Điện, đăng nhập. Chạm thanh địa chỉ, gõ <b>sdstram</b>, chọn dấu trang hiện ra (biểu tượng ngôi sao) — khung check hiện lên.</li>
+    </ol>
+    <p class="hint">iPhone (Safari) cũng làm được theo cách sửa dấu trang tương tự, nhưng hay lỗi hơn; nên check trên máy tính hoặc Android.</p>
+  </div>
+</section>
+
+<!-- TRA MÃ -->
+<section class="tab" id="tab-tra" hidden>
+  <div class="card">
+    <h2>Dữ liệu T11 trên máy này</h2>
+    <p class="hint" id="t-info"></p>
+    <p class="hint">Cập nhật: mở Google Sheet T11 → Tệp → Tải xuống → CSV, rồi chọn file đó ở đây. App lưu lại trên máy, lần sau mở không cần mạng.</p>
+    <label>Chọn file CSV T11<input type="file" id="t-file" accept=".csv,text/csv"></label>
+  </div>
+  <div class="card">
+    <h2>Tra mã</h2>
+    <label>Dán 1 hoặc nhiều mã (có tiền cũng được) — xem ai làm, mã nào trùng, mã nào chưa có<textarea id="t-in" spellcheck="false" style="min-height:110px"></textarea></label>
+    <div class="stats" id="t-stats"></div>
+    <div class="tbl"><table id="t-tbl"></table></div>
+  </div>
+</section>
+
+<!-- CÀI ĐẶT -->
+<section class="tab" id="tab-cai" hidden>
+  <div class="card">
+    <h2>Khách và % thường dùng</h2>
+    <p class="hint">Mỗi dòng: TÊN % (vd "PHUC 2"). Chọn khách ở tab Bank thì % tự điền.</p>
+    <textarea id="c-khach" spellcheck="false" style="min-height:180px"></textarea>
+  </div>
+  <div class="card">
+    <h2>Đại lý và bậc phí</h2>
+    <p class="hint">Mỗi dòng: TÊN BẬC (vd "HUY 3").</p>
+    <textarea id="c-daily" spellcheck="false" style="min-height:120px"></textarea>
+    <div class="btns"><button class="btn" id="c-save">Lưu</button></div>
+  </div>
+</section>
+
+<datalist id="dl-khach"></datalist><datalist id="dl-daily"></datalist>
+</div>
+
+<script>
+/* ===== XLSX LITE ===== */
+const XL=(()=>{
+  const u16=(b,o)=>b[o]|(b[o+1]<<8), u32=(b,o)=>(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0;
+  async function inflate(data){const s=new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));return new Uint8Array(await new Response(s).arrayBuffer())}
+  async function unzip(buf){
+    const b=new Uint8Array(buf);let e=b.length-22;while(e>=0&&u32(b,e)!==0x06054b50)e--;if(e<0)throw new Error('zip');
+    const n=u16(b,e+10);let p=u32(b,e+16);const files={};const td=new TextDecoder();
+    for(let i=0;i<n;i++){
+      const method=u16(b,p+10),cs=u32(b,p+20),nl=u16(b,p+28),xl=u16(b,p+30),cl=u16(b,p+32),lo=u32(b,p+42);
+      const name=td.decode(b.subarray(p+46,p+46+nl));p+=46+nl+xl+cl;
+      const ds=lo+30+u16(b,lo+26)+u16(b,lo+28);const raw=b.subarray(ds,ds+cs);
+      files[name]={method,raw};
+    }
+    return {names:Object.keys(files),async text(n){const f=files[n];if(!f)return null;const d=f.method===8?await inflate(f.raw):f.raw;return td.decode(d)}};
+  }
+  const unx=s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d)).replace(/&amp;/g,'&');
+  const colN=s=>{let n=0;for(const ch of s)n=n*26+ch.charCodeAt(0)-64;return n-1};
+  async function read(buf){
+    const z=await unzip(buf);
+    const ss=[];const sx=await z.text('xl/sharedStrings.xml');
+    if(sx)(sx.match(/<si>[\s\S]*?<\/si>/g)||[]).forEach(si=>ss.push(unx((si.match(/<t[^>]*>[\s\S]*?<\/t>/g)||[]).map(t=>t.replace(/<[^>]+>/g,'')).join(''))));
+    const sheet=z.names.filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a,b)=>parseInt(a.match(/\d+/))-parseInt(b.match(/\d+/)))[0];
+    const x=await z.text(sheet);const rows=[];
+    (x.match(/<row[\s\S]*?<\/row>/g)||[]).forEach(rw=>{const r=[];
+      (rw.match(/<c [^>]*?(?:\/>|>[\s\S]*?<\/c>)/g)||[]).forEach(c=>{
+        const ref=(c.match(/ r="([A-Z]+)\d+"/)||[])[1];const t=(c.match(/ t="(\w+)"/)||[])[1];
+        let v=(c.match(/<v>([\s\S]*?)<\/v>/)||[])[1];if(t==='inlineStr')v=(c.match(/<t[^>]*>([\s\S]*?)<\/t>/)||[])[1];
+        if(v==null)return;v=unx(v);if(t==='s')v=ss[+v];else if(!t||t==='n')v=+v;
+        r[ref?colN(ref):r.length]=v;});
+      rows.push(r);});
+    return rows;
+  }
+  /* bảng → các dòng "mã tiền" */
+  function toLines(rows){
+    const out=[];
+    rows.forEach(r=>{if(!r)return;let ci=-1,code='';
+      for(let i=0;i<r.length;i++){const s=String(r[i]==null?'':r[i]).trim().toUpperCase();const m=s.match(/^([A-Z]{2}\d{8,14})$/);if(m){ci=i;code=m[1];break}}
+      if(ci<0)return;let amt='';
+      for(let i=ci+1;i<r.length;i++){const v=r[i];const n=typeof v==='number'?v:(/^[\d.,\s]+$/.test(String(v||''))?parseInt(String(v).replace(/[^\d]/g,''),10):NaN);if(n>=1000){amt=Math.round(n);break}}
+      out.push(code+(amt!==''?'\t'+amt:''));});
+    return out;
+  }
+  function csvRows(t){const rows=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','||c==';'||c=='\t'){r.push(f);f=''}else if(c=='\n'){r.push(f);rows.push(r);r=[];f=''}else if(c!='\r')f+=c}if(f||r.length){r.push(f);rows.push(r)}return rows}
+  return {read,toLines,csvRows};
+})();
+/* ===== END XLSX LITE ===== */
+
+/* ===== CALC (thuần, kiểm tra được) ===== */
+const Calc=(()=>{
+  const dots=n=>String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  const fee2=x=>(Math.round(x*100)/100).toFixed(2).replace('.',',');
+  const pctHead=p=>String(+p.toFixed(3)).replace('.',',')+'%';
+  const pctLine=p=>{let s=String(+p.toFixed(3));if(!s.includes('.'))s+='.0';return s.replace('.',',')+'%'};
+  const num=s=>{const d=String(s||'').replace(/[^\d]/g,'');return d?parseInt(d,10):0};
+  const rateOf=s=>{const m=String(s).match(/(\d+(?:[.,]\d+)?)\s*%/);return m?parseFloat(m[1].replace(',','.')):null};
+  function parse(text){
+    const out=[],bad=[];
+    String(text||'').split(/\r?\n/).forEach((line,i)=>{
+      const L=line.trim(); if(!L) return;
+      const cm=L.match(/\b([A-Za-z]{2}\d{8,14})\b/);
+      if(!cm){ if(/\d{5,}/.test(L.replace(/[.,\s]/g,''))&&!/^\d/.test(L)) bad.push(L); return; }
+      const code=cm[1].toUpperCase();
+      let rest=L.slice(cm.index+cm[0].length);
+      const r=rateOf(rest); rest=rest.replace(/\(?\s*\d+(?:[.,]\d+)?\s*%\s*\)?/,' ');
+      const am=rest.match(/\d[\d.,]*/);
+      const amount=am?num(am[0]):0;
+      out.push({code,amount,rate:r,line:i+1});
+    });
+    return {rows:out,bad};
+  }
+  function bank(rows,defRate,opt={}){
+    const R=rows.map(r=>({...r,rate:r.rate!=null?r.rate:defRate}));
+    const total=R.reduce((s,r)=>s+r.amount,0);
+    const fee=R.reduce((s,r)=>s+r.amount*(r.rate||0)/100,0);
+    const net=Math.round(total-fee+1e-9);
+    const rates=[...new Set(R.map(r=>r.rate))];
+    const mixed=rates.length>1;
+    const lines=opt.lines||mixed;
+    let m=mixed?`${R.length} đơn`:`${R.length} đơn (${pctHead(rates[0]||0)})`;
+    m+='\n';
+    if(lines){m+='\n'+R.slice().sort((a,b)=>a.amount-b.amount||a.code.localeCompare(b.code)).map(r=>`${r.code} ${dots(r.amount)} (${pctLine(r.rate||0)})`).join('\n')+'\n';}
+    m+=`\n${dots(total)}\n${fee2(fee)}\n${dots(net)}`;
+    let left=net;
+    if(opt.ung>0){left-=opt.ung;m+=`\n\nĐã ứng: ${dots(opt.ung)}`}
+    if(opt.tru>0){left-=opt.tru;m+=`${opt.ung>0?'\n':'\n\n'}Trừ lại: ${dots(opt.tru)}`}
+    if(opt.ung>0||opt.tru>0) m+=`\nCòn chuyển: ${dots(left)}`;
+    return {rows:R,total,fee,net,left,msg:m,mixed};
+  }
+  function tierRate(a,t){ if(a<400000) return 0.5; if(t==2) return 0.6; return a<1000000?0.6:1.0; }
+  function agent(rows,tier,name,lot,tru){
+    const R=rows.map(r=>({...r,rate:tierRate(r.amount,tier)})).sort((a,b)=>a.amount-b.amount||a.code.localeCompare(b.code));
+    const total=R.reduce((s,r)=>s+r.amount,0);
+    const fee=R.reduce((s,r)=>s+r.amount*r.rate/100,0);
+    const net=Math.round(total-fee+1e-9);
+    const g=(f)=>{const x=R.filter(f);return [x.length,x.reduce((s,r)=>s+r.amount,0)]};
+    const groups= tier==2
+      ? [['< 400k (0,5%)',g(r=>r.amount<400000)],['≥ 400k (0,6%)',g(r=>r.amount>=400000)]]
+      : [['< 400k (0,5%)',g(r=>r.amount<400000)],['400k–1tr (0,6%)',g(r=>r.amount>=400000&&r.amount<1000000)],['≥ 1tr (1%)',g(r=>r.amount>=1000000)]];
+    const title=`THANH TOÁN ${(name||'').toUpperCase()}${lot?' '+lot:''} (${R.length} đơn)`.replace(/\s+/g,' ');
+    let m=title+'\n\n'+R.map(r=>`${r.code} ${dots(r.amount)} (${pctLine(r.rate)})`).join('\n')+'\n\n';
+    m+=groups.filter(x=>x[1][0]>0).map(([l,[c,s]])=>`${c} đơn ${l}: ${dots(s)}`).join('\n');
+    m+=`\n\n${dots(total)}\n${fee2(fee)}\n${dots(net)}`;
+    let left=net; if(tru>0){left=net-tru;m+=`\n\nTrừ: ${dots(tru)}\nCòn chuyển: ${dots(left)}`}
+    return {rows:R,total,fee,net,left,msg:m,groups,title};
+  }
+  const strip=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/\s+/g,'').toUpperCase();
+  return {dots,fee2,pctHead,pctLine,num,parse,bank,agent,tierRate,strip};
+})();
+/* ===== END CALC ===== */
+
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem('sds_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sds_'+k,JSON.stringify(v))}catch(e){}}};
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),1600)}
+async function copyText(t,el){
+  if(window.Native&&Native.copy){Native.copy(t);return}
+  try{await navigator.clipboard.writeText(t);toast('Đã copy');}
+  catch(e){ if(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);} toast('Đã chọn sẵn chữ — nhấn Copy'); }
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ===== Khách & đại lý ===== */
+const DEF_KHACH="PHUC 2\nNGOHOANG 0,95\nDUCVENUS 1,2\nHUNGNHUNG 1,2\nVANBACH 1,6\nTUONGTHI 2\nHUY 1,6";
+const DEF_DAILY="HUY 3\nHUNG 2\nTUNG 2";
+function parseMap(t){const m={};String(t).split(/\n/).forEach(l=>{const p=l.trim().split(/\s+/);if(p.length>=2){m[Calc.strip(p.slice(0,-1).join(''))]=parseFloat(p[p.length-1].replace(',','.'))}});return m}
+let KH=parseMap(store.get('khach',DEF_KHACH)), DL=parseMap(store.get('daily',DEF_DAILY));
+function fillLists(){
+  $('dl-khach').innerHTML=Object.keys(KH).map(k=>`<option value="${esc(k)}">`).join('');
+  $('dl-daily').innerHTML=Object.keys(DL).map(k=>`<option value="${esc(k)}">`).join('');
+}
+$('c-khach').value=store.get('khach',DEF_KHACH); $('c-daily').value=store.get('daily',DEF_DAILY);
+$('c-save').onclick=()=>{store.set('khach',$('c-khach').value);store.set('daily',$('c-daily').value);KH=parseMap($('c-khach').value);DL=parseMap($('c-daily').value);fillLists();toast('Đã lưu')};
+fillLists();
+
+/* ===== Ảnh chi tiết ===== */
+function drawImg(title,sub,rows,foot){
+  const per=rows.length>40?Math.ceil(rows.length/2):rows.length, cols=rows.length>40?2:1;
+  const colW=430,rowH=26,pad=24,headH=78,footH=foot.length*26+20;
+  const W=pad*2+colW*cols+(cols-1)*24, H=headH+rowH*(per+1)+footH+pad;
+  const c=document.createElement('canvas'),s=2;c.width=W*s;c.height=H*s;const x=c.getContext('2d');x.scale(s,s);
+  x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
+  x.fillStyle='#0f7a55';x.fillRect(0,0,W,6);
+  x.fillStyle='#18201d';x.font='700 22px system-ui,Segoe UI,Arial';x.fillText(title,pad,38);
+  x.fillStyle='#5d6b66';x.font='15px system-ui,Segoe UI,Arial';x.fillText(sub,pad,62);
+  for(let k=0;k<cols;k++){
+    const ox=pad+k*(colW+24); let y=headH;
+    x.fillStyle='#e1f2ea';x.fillRect(ox,y,colW,rowH);
+    x.fillStyle='#18201d';x.font='700 13px system-ui,Segoe UI,Arial';
+    x.fillText('STT',ox+8,y+17);x.fillText('Mã',ox+50,y+17);x.textAlign='right';x.fillText('Số tiền',ox+330,y+17);x.fillText('%',ox+colW-8,y+17);x.textAlign='left';
+    rows.slice(k*per,(k+1)*per).forEach((r,i)=>{
+      y+=rowH; if(i%2){x.fillStyle='#f3f5f4';x.fillRect(ox,y,colW,rowH)}
+      x.fillStyle='#18201d';x.font='13px ui-monospace,Consolas,monospace';
+      x.fillText(String(k*per+i+1),ox+8,y+17);x.fillText(r.code,ox+50,y+17);
+      x.textAlign='right';x.fillText(Calc.dots(r.amount),ox+330,y+17);x.fillText(Calc.pctLine(r.rate||0),ox+colW-8,y+17);x.textAlign='left';
+    });
+  }
+  let y=headH+rowH*(per+1)+28;
+  foot.forEach(([l,v],i)=>{x.font=(i>=foot.length-3?'700 ':'')+'15px system-ui,Segoe UI,Arial';x.fillStyle='#18201d';x.fillText(l,pad,y);x.textAlign='right';x.fillText(v,W-pad,y);x.textAlign='left';y+=26});
+  return c.toDataURL('image/png');
+}
+function dlImg(img,name){if(window.Native&&Native.saveFile){Native.saveFile(name,img.src.split(',')[1],'image/png');return}const a=document.createElement('a');a.href=img.src;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Nếu không tải được: nhấn giữ ảnh → Lưu')}
+
+/* ===== T11 trên máy ===== */
+let T11=store.get('t11',null);
+function t11Index(){const m={};(T11&&T11.rows||[]).forEach(r=>{(m[r.code]=m[r.code]||[]).push(r)});return m}
+let T11I=t11Index();
+
+/* ===== Bank khách ===== */
+function renderBank(){
+  const name=$('b-name').value.trim(); const def=parseFloat(($('b-rate').value||'0').replace(',','.'))||0;
+  const {rows,bad}=Calc.parse($('b-in').value);
+  const res=Calc.bank(rows,def,{lines:$('b-lines').checked,ung:Calc.num($('b-ung').value),tru:Calc.num($('b-tru').value)});
+  const seen={};
+  $('b-tbl').innerHTML='<tr><th>#</th><th>Mã</th><th style="text-align:right">Tiền</th><th style="text-align:right">%</th><th>T11</th></tr>'+res.rows.map((r,i)=>{
+    const dup=seen[r.code];seen[r.code]=1;const t=T11I[r.code];let tag='';
+    if(dup) tag='<span class="pill b">trùng trong danh sách</span>';
+    else if(t&&t.some(x=>x.d&&Calc.strip(x.d)!==Calc.strip(name))) tag=`<span class="pill w">T11: ${esc(t.map(x=>x.d).filter(Boolean).join(', '))}</span>`;
+    else if(t) tag='<span class="pill ok">có trong T11</span>';
+    else if(T11) tag='<span class="pill w">chưa có trong T11</span>';
+    return `<tr class="${dup?'bad':(r.amount?'':'warn')}"><td>${i+1}</td><td>${r.code}</td><td class="n">${Calc.dots(r.amount)}</td><td class="n">${Calc.pctLine(r.rate||0)}</td><td>${tag}</td></tr>`}).join('');
+  $('b-stats').innerHTML=`<div class="stat"><small>Tổng (${res.rows.length} đơn)</small><b>${Calc.dots(res.total)}</b></div><div class="stat"><small>Phí</small><b>${Calc.fee2(res.fee)}</b></div><div class="stat"><small>${(Calc.num($('b-ung').value)||Calc.num($('b-tru').value))?'Còn chuyển':'Chuyển khách'}</small><b>${Calc.dots(res.left)}</b></div>`;
+  $('b-msg').textContent=res.rows.length?res.msg:'Dán mã + tiền ở trên để tạo tin nhắn.';
+  const notes=[];if(bad.length)notes.push(`Không đọc được ${bad.length} dòng: ${bad.slice(0,3).join(' | ')}`);if(res.rows.some(r=>!r.amount))notes.push('Có mã chưa có số tiền (tô vàng).');if(!def&&res.rows.some(r=>r.rate==null))notes.push('Chưa nhập % mặc định.');
+  $('b-note').textContent=notes.join(' ');
+  if(res.rows.length){
+    const foot=[['Số đơn',String(res.rows.length)],['Tổng',Calc.dots(res.total)],['Phí',Calc.fee2(res.fee)],[res.left!==res.net?'Còn chuyển':'Chuyển',Calc.dots(res.left)]];
+    $('b-img').src=drawImg(`BANK ${Calc.strip(name)||'KHÁCH'}`,`${res.rows.length} đơn${res.mixed?'':' · '+Calc.pctHead(res.rows[0].rate||0)}`,res.rows.slice().sort((a,b)=>a.amount-b.amount),foot);
+  }
+  window._bank=res; store.set('bank_draft',{n:name,r:$('b-rate').value,i:$('b-in').value,u:$('b-ung').value,t:$('b-tru').value});
+}
+$('b-name').addEventListener('change',()=>{const k=Calc.strip($('b-name').value);if(KH[k]!=null){$('b-rate').value=String(KH[k]).replace('.',',')}renderBank()});
+['b-rate','b-in','b-ung','b-tru','b-lines','b-name'].forEach(id=>$(id).addEventListener('input',renderBank));
+['b-in','d-in'].forEach(id=>$(id).addEventListener('input',()=>{delete $(id).dataset.sample}));
+$('b-copy').onclick=()=>copyText($('b-msg').textContent,$('b-msg'));
+$('b-copyt11').onclick=()=>{const n=Calc.strip($('b-name').value);const t=(window._bank?.rows||[]).map(r=>`${r.code}\t${n}\t${Calc.pctLine(r.rate||0)}`).join('\n');copyText(t,$('b-msg'))};
+$('b-dl').onclick=()=>dlImg($('b-img'),`Bank ${Calc.strip($('b-name').value)||'khach'}.png`);
+
+/* ===== Đại lý ===== */
+function renderDL(){
+  const name=$('d-name').value.trim(),lot=$('d-lot').value.trim(),tier=+$('d-tier').value;
+  const {rows,bad}=Calc.parse($('d-in').value);
+  const res=Calc.agent(rows,tier,name,lot,Calc.num($('d-tru').value));
+  const seen={};
+  $('d-tbl').innerHTML='<tr><th>#</th><th>Mã</th><th style="text-align:right">Tiền</th><th style="text-align:right">%</th></tr>'+res.rows.map((r,i)=>{const dup=seen[r.code];seen[r.code]=1;return `<tr class="${dup?'bad':(r.amount?'':'warn')}"><td>${i+1}</td><td>${r.code}${dup?' <span class="pill b">trùng</span>':''}</td><td class="n">${Calc.dots(r.amount)}</td><td class="n">${Calc.pctLine(r.rate)}</td></tr>`}).join('');
+  $('d-stats').innerHTML=`<div class="stat"><small>Tổng (${res.rows.length} đơn)</small><b>${Calc.dots(res.total)}</b></div><div class="stat"><small>Phí</small><b>${Calc.fee2(res.fee)}</b></div><div class="stat"><small>${res.left!==res.net?'Còn chuyển':'Thực nhận'}</small><b>${Calc.dots(res.left)}</b></div>`;
+  $('d-msg').textContent=res.rows.length?res.msg:'Dán mã + tiền ở trên để tạo tin nhắn.';
+  $('d-note').textContent=bad.length?`Không đọc được ${bad.length} dòng: ${bad.slice(0,3).join(' | ')}`:'';
+  if(res.rows.length){
+    const foot=res.groups.filter(g=>g[1][0]).map(([l,[c,s]])=>[`${c} đơn ${l}`,Calc.dots(s)]).concat([['Tổng',Calc.dots(res.total)],['Phí',Calc.fee2(res.fee)],[res.left!==res.net?'Còn chuyển':'Còn',Calc.dots(res.left)]]);
+    $('d-img').src=drawImg(res.title.replace(/ \(\d+ đơn\)$/,''),`${res.rows.length} đơn · bậc ${tier}`,res.rows,foot);
+  }
+  store.set('dl_draft',{n:name,l:lot,t:tier,i:$('d-in').value,x:$('d-tru').value});
+}
+$('d-name').addEventListener('change',()=>{const k=Calc.strip($('d-name').value);if(DL[k]){$('d-tier').value=String(DL[k])}renderDL()});
+['d-name','d-lot','d-tier','d-in','d-tru'].forEach(id=>$(id).addEventListener('input',renderDL));
+$('d-copy').onclick=()=>copyText($('d-msg').textContent,$('d-msg'));
+$('d-dl').onclick=()=>dlImg($('d-img'),`${$('d-name').value||'Dai ly'} ${$('d-lot').value} - dai ly.png`);
+
+/* ===== Tra mã ===== */
+function parseCSV(t){const rows=[];let r=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){r.push(f);f=''}else if(c=='\n'){r.push(f);rows.push(r);r=[];f=''}else if(c!='\r')f+=c}if(f||r.length){r.push(f);rows.push(r)}return rows}
+$('t-file').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{
+  const rows=[];parseCSV(rd.result).forEach((r,i)=>{const code=(r[1]||'').trim().toUpperCase();if(/^[A-Z]{2}\d{8,}/.test(code))rows.push({row:i+1,lot:r[0]||'',code,amount:Calc.num(r[2]),d:(r[3]||'').trim(),e:(r[4]||'').trim()})});
+  T11={at:new Date().toLocaleString('vi-VN'),name:f.name,rows};store.set('t11',T11);T11I=t11Index();renderTra();renderBank();renderLo();toast(`Đã nạp ${rows.length} mã`)};rd.readAsText(f)};
+function renderTra(){
+  $('t-info').innerHTML=T11?`Đang có <b>${T11.rows.length}</b> mã từ file <b>${esc(T11.name)}</b> (nạp lúc ${esc(T11.at)}).`:'Chưa nạp T11. Tab này đang chạy với dữ liệu mẫu bên dưới để anh xem cách dùng.';
+  const {rows}=Calc.parse($('t-in').value);
+  const src=T11?T11I:SAMPLE_T11; const cnt={ok:0,none:0,dup:0};const seen={};
+  $('t-tbl').innerHTML='<tr><th>Mã</th><th>Lô</th><th style="text-align:right">Tiền</th><th>Ai làm</th><th>%</th><th>Dòng</th></tr>'+rows.map(r=>{
+    const hit=src[r.code];const dup=seen[r.code];seen[r.code]=1;
+    if(!hit){cnt.none++;return `<tr class="warn"><td>${r.code}</td><td colspan="5"><span class="pill w">chưa có trong T11</span></td></tr>`}
+    if(hit.length>1||dup)cnt.dup++;else cnt.ok++;
+    return hit.map(h=>`<tr class="${hit.length>1?'bad':''}"><td>${r.code}</td><td>${esc(h.lot)}</td><td class="n">${Calc.dots(h.amount)}</td><td>${h.d?esc(h.d):'<span class="pill w">trống</span>'}</td><td>${esc(h.e||'')}</td><td>${h.row}</td></tr>`).join('')}).join('');
+  $('t-stats').innerHTML=`<div class="stat"><small>Tìm thấy</small><b>${cnt.ok}</b></div><div class="stat"><small>Trùng (≥2 dòng)</small><b>${cnt.dup}</b></div><div class="stat"><small>Chưa có</small><b>${cnt.none}</b></div>`;
+}
+const SAMPLE_T11={"PB11070060425":[{row:3042,lot:"TUNG 7.11.26 (mẫu)",code:"PB11070060425",amount:464594,d:"PHUC",e:"2,0%"}],"PB11070021011":[{row:3761,lot:"HUNG 10.11.26 (mẫu)",code:"PB11070021011",amount:1070010,d:"Trả ĐL",e:""}]};
+$('t-in').addEventListener('input',renderTra);
+
+
+/* ===== Nạp file / ảnh ===== */
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('load'));document.head.appendChild(s)})}
+async function ocr(file,note){
+  note.textContent='Đang tải bộ đọc ảnh (cần mạng)…';
+  if(!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  const r=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')note.textContent='Đang đọc ảnh… '+Math.round(m.progress*100)+'%'}});
+  return r.data.text.split(/\n/).map(l=>l.replace(/\bP8/g,'PB').replace(/(?<=PB\d*)[Oo]/g,'0')).filter(l=>/[A-Z]{2}\d{8,}/i.test(l));
+}
+async function importFile(file,taId,noteId,after){
+  const note=$(noteId),ta=$(taId);let lines=[];
+  try{
+    if(/^image\//.test(file.type)) lines=await ocr(file,note);
+    else if(/\.xlsx$/i.test(file.name)) lines=XL.toLines(await XL.read(await file.arrayBuffer()));
+    else lines=XL.toLines(XL.csvRows(await file.text()));
+    if(!lines.length){note.textContent='Không tìm thấy mã nào trong file.';return}
+    ta.value=(ta.dataset.sample?'':ta.value.trim()+(ta.value.trim()?'\n':''))+lines.join('\n');delete ta.dataset.sample;
+    note.textContent=`Đã thêm ${lines.length} dòng từ ${file.name}.`+(/^image/.test(file.type)?' Ảnh đọc có thể sai — anh soát lại số tiền.':'');
+    after();
+  }catch(e){note.textContent=/^image/.test(file.type)?'Không đọc được ảnh ở đây (cần mở file trên máy và có mạng). Dùng Google Lens / Live Text: nhấn giữ chữ trong ảnh → Sao chép → dán vào ô trên.':'Không đọc được file này. Anh thử lưu lại dạng .xlsx hoặc .csv.'}
+}
+$('b-file').onchange=e=>{const f=e.target.files[0];if(f)importFile(f,'b-in','b-fnote',renderBank);e.target.value=''};
+$('d-file').onchange=e=>{const f=e.target.files[0];if(f)importFile(f,'d-in','d-fnote',renderDL);e.target.value=''};
+$('k-gs-copy').onclick=()=>copyText($('k-gs').textContent,$('k-gs'));
+$('k-copy').onclick=()=>{$('k-code').hidden=false;$('k-code').textContent=$('k-link').getAttribute('href');copyText($('k-link').getAttribute('href'),$('k-code'))};
+$('k-link').onclick=e=>{e.preventDefault();toast('Kéo nút này lên thanh dấu trang, rồi bấm nó trên trang Điện của otpsms')};
+
+
+/* ===== Nhận lô ===== */
+const Lo={
+  parse(text){
+    let t=String(text||'');
+    const expN=(t.match(/=\s*(\d{1,4})(?!\d)/)||[])[1];
+    const expT=(t.match(/kh\s*[:=]?\s*([\d][\d.,]{3,})/i)||[])[1];
+    t=t.replace(/=\s*\d{1,4}(?!\d)/g,' ').replace(/kh\s*[:=]?\s*[\d][\d.,]{3,}/ig,' ');
+    const toks=t.toUpperCase().match(/[A-Z]{2}\d{11}|\d{4,7}/g)||[];
+    return {toks,expN:expN?+expN:null,expT:expT?Calc.num(expT):null};
+  },
+  full(tok,pre){ if(/^[A-Z]/.test(tok)) return tok; return pre+tok.padStart(7,'0'); }
+};
+function renderLo(){
+  const {toks,expN,expT}=Lo.parse($('l-in').value);
+  const dl=Calc.strip($('l-dl').value);let sel=$('l-pre').value;
+  const idx=T11?T11I:{};
+  const rows=[];const seen={};
+  toks.forEach(tk=>{
+    let code;
+    if(sel!=='auto') code=Lo.full(tk,sel);
+    else if(/^[A-Z]/.test(tk)) code=tk;
+    else{const a=Lo.full(tk,'PB1107'),b=Lo.full(tk,'PB2005');
+      if(idx[a]&&!idx[b])code=a;else if(idx[b]&&!idx[a])code=b;else code=dl==='HUY'?b:a;}
+    const dup=!!seen[code];seen[code]=1;
+    const hit=idx[code]||[];const h=hit[0];
+    rows.push({tk,code,dup,amount:h?h.amount:null,lot:h?h.lot:'',d:h?h.d:'',e:h?h.e:'',n:hit.length});
+  });
+  const uniq=rows.filter(r=>!r.dup);
+  const total=uniq.reduce((s,r)=>s+(r.amount||0),0);
+  const miss=uniq.filter(r=>r.amount==null).length;
+  $('l-stats').innerHTML=`<div class="stat"><small>Số mã${expN?` (tin ghi ${expN})`:''}</small><b style="color:${expN&&expN!==uniq.length?'var(--bad)':'inherit'}">${uniq.length}</b></div><div class="stat"><small>Tổng tiền theo T11${expT?` (tin ghi ${Calc.dots(expT)})`:''}</small><b style="color:${expT&&expT!==total?'var(--warn)':'inherit'}">${Calc.dots(total)}</b></div><div class="stat"><small>Chưa có trong T11</small><b>${T11?miss:'—'}</b></div>`;
+  $('l-tbl').innerHTML='<tr><th>#</th><th>Gõ</th><th>Mã đủ</th><th style="text-align:right">Tiền</th><th>Lô</th><th>Ai làm</th></tr>'+rows.map((r,i)=>`<tr class="${r.dup||r.n>1?'bad':(r.amount==null&&T11?'warn':'')}"><td>${i+1}</td><td>${esc(r.tk)}</td><td>${r.code}${r.dup?' <span class="pill b">trùng</span>':''}</td><td class="n">${r.amount==null?'':Calc.dots(r.amount)}</td><td>${esc(r.lot)}</td><td>${r.d?esc(r.d):(r.amount!=null?'<span class="pill ok">trống</span>':'')}</td></tr>`).join('');
+  const g={};uniq.forEach(r=>{if(r.amount==null)return;const k=r.d||'(chưa ai làm)';g[k]=g[k]||[0,0];g[k][0]++;g[k][1]+=r.amount});
+  $('l-group').innerHTML=Object.keys(g).length?'Theo người làm: '+Object.entries(g).map(([k,[c,s]])=>`<b>${esc(k)}</b> ${c} mã (${Calc.dots(s)})`).join(' · '):'';
+  const notes=[];if(!T11)notes.push('Chưa nạp T11 (tab Tra mã T11) nên chưa có tiền và tên người làm — vẫn copy mã đi check cước được.');
+  if(expN&&expN!==uniq.length)notes.push(`Tin ghi ${expN} mã nhưng chỉ đọc được ${uniq.length} mã.`);
+  if(rows.some(r=>r.dup))notes.push('Có mã gửi trùng (tô đỏ).');
+  $('l-note').textContent=notes.join(' ');
+  window._lo=uniq; store.set('lo_draft',{d:$('l-dl').value,p:sel,i:$('l-in').value,n:$('l-name').value,r:$('l-rate').value});
+}
+['l-dl','l-pre','l-in','l-name','l-rate'].forEach(id=>$(id).addEventListener('input',renderLo));
+$('l-name').addEventListener('change',()=>{const k=Calc.strip($('l-name').value);if(KH[k]!=null)$('l-rate').value=String(KH[k]).replace('.',',');renderLo()});
+$('l-copy').onclick=()=>copyText((window._lo||[]).map(r=>r.code).join('\n'),$('l-tbl'));
+$('l-copyall').onclick=()=>copyText((window._lo||[]).map(r=>`${r.code}\t${r.amount==null?'':Calc.dots(r.amount)}\t${r.d||''}`).join('\n'),$('l-tbl'));
+function loMine(){const me=Calc.strip($('l-name').value);const ok=[],other=[];(window._lo||[]).forEach(r=>{if(r.d&&Calc.strip(r.d)!==me)other.push(r);else ok.push(r)});return {ok,other,me}}
+$('l-tobank').onclick=()=>{const {ok,other,me}=loMine();if(!me){toast('Chọn khách làm trước');return}
+  $('b-name').value=me;$('b-rate').value=$('l-rate').value;$('b-in').value=ok.map(r=>r.code+(r.amount!=null?' '+Calc.dots(r.amount):'')).join('\n');delete $('b-in').dataset.sample;
+  $('b-ung').value='';$('b-tru').value='';renderBank();show('bank');
+  if(other.length)toast(`Bỏ ${other.length} mã đã có người khác làm`)};
+$('l-t11').onclick=()=>{const {ok,me}=loMine();if(!me){toast('Chọn khách làm trước');return}const p=Calc.pctLine(parseFloat(($('l-rate').value||'0').replace(',','.'))||0);
+  copyText(ok.map(r=>`${r.code}\t${me}\t${p}`).join('\n'),$('l-tbl'))};
+
+if(window.Native&&Native.share){['b','d'].forEach(p=>{$(p+'-share').hidden=false;$(p+'-share').onclick=()=>Native.share($(p+'-msg').textContent)})}
+/* ===== Tabs + khởi động ===== */
+function show(t){document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));document.querySelectorAll('section.tab').forEach(s=>s.hidden=s.id!=='tab-'+t);store.set('tab',t)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.tab));
+
+const bd=store.get('bank_draft',null);
+if(bd&&bd.i){$('b-name').value=bd.n||'';$('b-rate').value=bd.r||'';$('b-in').value=bd.i;$('b-ung').value=bd.u||'';$('b-tru').value=bd.t||''}
+else{$('b-name').value='DUCVENUS';$('b-rate').value='1,3';$('b-in').value='PB20050003267\t428.609\nPB20050003258\t436.320\nPB20050039135\t704.763';$('b-in').dataset.sample=1}
+const dd=store.get('dl_draft',null);
+if(dd&&dd.i){$('d-name').value=dd.n||'';$('d-lot').value=dd.l||'';$('d-tier').value=String(dd.t||3);$('d-in').value=dd.i;$('d-tru').value=dd.x||''}
+else{$('d-name').value='HUNG';$('d-lot').value='(mẫu)';$('d-tier').value='2';$('d-in').value='PB11070054306 1.504.639\nPB11070039020 274.385\nPB11070039004 330.934\nPB11070021011 1.070.010';$('d-in').dataset.sample=1}
+$('t-in').value='PB11070060425\nPB11070021011\nPB11070099999';
+const ld=store.get('lo_draft',null);
+if(ld&&ld.i){$('l-dl').value=ld.d||'';$('l-pre').value=ld.p||'auto';$('l-in').value=ld.i;$('l-name').value=ld.n||'';$('l-rate').value=ld.r||''}
+else{$('l-dl').value='TUNG';$('l-in').value='45881 .26481 .24471 .24339 .26519 .51905 .45718 .26467 .24346 .24345 .59302 .60277 .24334 .30910 .24480 .26530 .26476 .52660 .26528 .26478 .31321 .29577 .27801 .29583 .30401 .29555 .29668 .29662 .29585 .59108 .48473 .29575 =64  kh = 35769621'}
+renderBank();renderDL();renderTra();renderLo();show(store.get('tab','lo'));
+</script>
+</body></html>
