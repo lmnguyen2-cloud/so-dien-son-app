@@ -98,6 +98,7 @@ public class MainActivity extends Activity {
     st.setJavaScriptEnabled(true); st.setDomStorageEnabled(true); st.setDatabaseEnabled(true);
     st.setAllowFileAccess(true); st.setLoadWithOverviewMode(true); st.setUseWideViewPort(true);
     st.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+    if (Build.VERSION.SDK_INT >= 33) st.setAlgorithmicDarkeningAllowed(false);
     w.addJavascriptInterface(new Bridge(), "Native");
     w.setWebChromeClient(new WebChromeClient() {
       @Override public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams p) {
@@ -128,6 +129,9 @@ public class MainActivity extends Activity {
   }
 
   class Bridge {
+    @JavascriptInterface public boolean isDark() {
+      return (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
     @JavascriptInterface public void copy(String text) {
       runOnUiThread(() -> {
         ClipboardManager c = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
