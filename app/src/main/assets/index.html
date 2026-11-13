@@ -109,7 +109,7 @@ details summary{cursor:pointer;font-weight:600}
     </div>
     <p class="hint" id="l-chknote"></p>
     <div class="stats" id="l-stats"></div>
-    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi (100 dòng)</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
+    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi (100 dòng)</button><button class="btn ghost" id="l-sub">Gửi sheet đại lý con</button><button class="btn ghost" id="l-subimg">Ảnh gửi nhóm</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
     <div class="tbl"><table id="l-tbl"></table></div>
     <div id="l-group" class="hint"></div>
   </div>
@@ -406,11 +406,18 @@ function assign_(codes, name) {
   <div class="card" id="g-card">
     <h2>Tài khoản Google &amp; sổ tháng</h2>
     <p class="hint" id="g-st"></p>
-    <div class="btns"><button class="btn" id="g-login">Đăng nhập Google</button><button class="btn ghost" id="g-pick">Chọn sheet từ Drive</button></div>
+    <div class="btns"><button class="btn" id="g-login">Đăng nhập Google</button><button class="btn ghost" id="g-pick">Chọn sheet từ Drive</button><button class="btn ghost" id="g-logout">Đăng xuất Google</button></div>
     <div class="chips" id="g-list"></div>
     <label>Hoặc dán link Google Sheet bất kỳ (T11, T12…)<input id="g-link" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
     <div class="btns"><button class="btn ghost" id="g-use">Dùng sheet này</button></div>
     <p class="hint">Đã đăng nhập Google thì app đọc/ghi thẳng vào sheet đã chọn — không cần cầu nối Apps Script. Sang tháng mới chỉ cần chọn sheet T12.</p>
+  </div>
+  <div class="card">
+    <h2>Sheet đại lý con</h2>
+    <p class="hint">Nút "Gửi sheet đại lý con" ở tab Nhận lô dán các đơn còn cước từ mức tiền dưới đây trở lên vào cuối sheet này: 1 dòng tên lô (chữ đỏ nền vàng) rồi Mã · Số tiền, xếp nhỏ → lớn, cách lô trước 1 dòng trống.</p>
+    <label>Link sheet đại lý con<input id="s-link" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+    <div class="row"><label>Tên hiển thị<input id="s-name" placeholder="ĐIỆN A SƠN VTS"></label><label>Lấy đơn từ (đ)<input id="s-min" inputmode="numeric"></label></div>
+    <div class="btns"><button class="btn" id="s-save">Lưu</button></div>
   </div>
   <div class="card">
     <h2>Cầu nối Apps Script (dự phòng)</h2>
@@ -861,6 +868,41 @@ $('g-pick').onclick=async()=>{$('g-list').innerHTML='<span class="hint">Đang t�
 $('g-list').onclick=e=>{const b=e.target.closest('button[data-id]');if(!b)return;GSHEET={id:b.dataset.id,name:b.dataset.n};store.set('gsheet',GSHEET);[...$('g-list').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderG();toast('Đã chọn '+GSHEET.name)};
 $('g-use').onclick=async()=>{const id=sheetIdFrom($('g-link').value);if(!id){toast('Link sheet không đúng');return}$('g-st').textContent='Đang mở sheet…';try{const m=await gMeta(id);GSHEET={id,name:m.name};store.set('gsheet',GSHEET);renderG();toast('Đã chọn '+m.name)}catch(e){$('g-st').textContent='Không mở được sheet: '+e.message}};
 G.email=store.get('gemail','');renderG();
+/* ===== Sheet đại lý con ===== */
+let SUB=store.get('sub',{link:'https://docs.google.com/spreadsheets/d/1vkT2xGPE4vPmOuDB2v9f1oegDVBQbPZ8CABJs5TH6W4/edit',name:'ĐIỆN A SƠN VTS',min:400000});
+$('s-link').value=SUB.link||'';$('s-name').value=SUB.name||'';$('s-min').value=Calc.dots(SUB.min||400000);
+$('s-save').onclick=()=>{SUB={link:$('s-link').value.trim(),name:$('s-name').value.trim()||'sheet đại lý con',min:Calc.num($('s-min').value)||400000};store.set('sub',SUB);toast('Đã lưu')};
+GS.push=async(id,b)=>{const m=await gMeta(id),v=await gVals(id,m,'A1:B');let L=0;for(let i=v.length-1;i>=0;i--){if((v[i]||[]).some(x=>String(x).trim()!=='')){L=i+1;break}}
+  const have=new Set(v.map(r=>String((r||[])[0]||'').trim().toUpperCase()));const rows=(b.rows||[]).filter(r=>!have.has(r[0]));const skipped=(b.rows||[]).length-rows.length;
+  if(!rows.length)return{ok:true,added:0,skipped,name:m.name};
+  const lab=L?L+2:1,s0=lab-1,n=rows.length,t=`'${m.tab}'!`;
+  const reqs=[{appendDimension:{sheetId:m.sid,dimension:'ROWS',length:n+3}},
+   {repeatCell:{range:{sheetId:m.sid,startRowIndex:s0,endRowIndex:s0+1,startColumnIndex:0,endColumnIndex:1},cell:{userEnteredFormat:{backgroundColor:{red:1,green:1,blue:0},textFormat:{fontFamily:'Georgia',fontSize:36,bold:true,foregroundColor:{red:1,green:0,blue:0}}}},fields:'userEnteredFormat(backgroundColor,textFormat)'}},
+   {repeatCell:{range:{sheetId:m.sid,startRowIndex:s0+1,endRowIndex:s0+1+n,startColumnIndex:0,endColumnIndex:1},cell:{userEnteredFormat:{textFormat:{fontFamily:'Georgia',fontSize:24}}},fields:'userEnteredFormat(textFormat,backgroundColor)'}},
+   {repeatCell:{range:{sheetId:m.sid,startRowIndex:s0+1,endRowIndex:s0+1+n,startColumnIndex:1,endColumnIndex:2},cell:{userEnteredFormat:{horizontalAlignment:'RIGHT',numberFormat:{type:'NUMBER',pattern:'#,##0'},textFormat:{fontFamily:'Georgia',fontSize:24}}},fields:'userEnteredFormat(horizontalAlignment,numberFormat,textFormat,backgroundColor)'}}];
+  await gfetch('POST',SH+id+':batchUpdate',{requests:reqs});
+  await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:[{range:`${t}A${lab}`,values:[[b.label]]},{range:`${t}A${lab+1}:B${lab+n}`,values:rows.map(r=>[r[0],r[1]])}]});
+  return{ok:true,added:n,skipped,from:lab,to:lab+n,name:m.name}};
+function subRows(){const P=loParts();return P.ok.filter(r=>r.c.rem>=(SUB.min||400000)).map(r=>[r.code,r.c.rem])}
+let subArm=0;
+$('l-sub').onclick=async()=>{const rows=subRows();if(!rows.length){toast('Check cước trước, hoặc không có đơn từ '+short(SUB.min||400000)+' trở lên');return}
+  const id=sheetIdFrom(SUB.link);if(!id){toast('Chưa có link sheet đại lý con (tab Cài đặt)');return}
+  if(!HAS_G){ $('l-chknote').textContent='Gửi sheet đại lý con cần đăng nhập Google trong app Android (tab Cài đặt).';return}
+  const lab=loName(),sum=rows.reduce((s,r)=>s+r[1],0);
+  if(!subArm){subArm=1;setTimeout(()=>subArm=0,15000);$('l-chknote').textContent=`Sẽ dán lô "${lab}": ${rows.length} đơn từ ${short(SUB.min||400000)} (${Calc.dots(sum)}) vào cuối "${SUB.name}". Bấm "Gửi sheet đại lý con" lần nữa để xác nhận.`;return}
+  subArm=0;$('l-chknote').textContent='Đang dán vào sheet đại lý con…';
+  try{const j=await GS.push(id,{label:lab,rows});$('l-chknote').textContent=`Đã dán ${j.added} đơn vào "${j.name}" (dòng ${j.from}–${j.to})${j.skipped?`, bỏ ${j.skipped} mã đã có trên sheet`:''}. Bấm "Ảnh gửi nhóm" để lấy ảnh báo nhóm.`}
+  catch(e){$('l-chknote').textContent='Không dán được: '+e.message}};
+$('l-subimg').onclick=()=>{const rows=subRows();if(!rows.length){toast('Chưa có đơn để chụp');return}const lab=loName(),sum=rows.reduce((s,r)=>s+r[1],0);
+  const src=drawSubImg(lab,rows,sum);const img=new Image();img.src=src;dlImg(img,lab+' - '+(SUB.name||'dai ly con')+'.png')};
+function drawSubImg(lab,rows,sum){const W=560,rh=40,H=110+rh*(rows.length+1)+60;const c=document.createElement('canvas');c.width=W*2;c.height=H*2;const x=c.getContext('2d');x.scale(2,2);
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#ffff00';x.fillRect(20,20,W-40,64);x.fillStyle='#ff0000';x.font='bold 36px Georgia,serif';x.fillText(lab,32,66);
+  let y=110;x.fillStyle='#18201d';x.font='bold 18px Georgia,serif';x.fillText('Mã',32,y);x.textAlign='right';x.fillText('Số tiền',W-32,y);x.textAlign='left';
+  rows.forEach((r,i)=>{y+=rh;if(i%2){x.fillStyle='#f3f5f4';x.fillRect(20,y-28,W-40,rh)}x.fillStyle='#18201d';x.font='24px Georgia,serif';x.fillText(r[0],32,y);x.textAlign='right';x.fillText(Calc.dots(r[1]),W-32,y);x.textAlign='left'});
+  y+=rh+6;x.font='bold 24px Georgia,serif';x.fillText(rows.length+' đơn',32,y);x.textAlign='right';x.fillText(Calc.dots(sum),W-32,y);x.textAlign='left';return c.toDataURL('image/png')}
+$('g-logout').onclick=async()=>{if(!HAS_G)return;try{if(G.tok)await rawHttp('POST','https://oauth2.googleapis.com/revoke?token='+encodeURIComponent(G.tok),null)}catch(e){}
+  G.tok=null;G.email='';store.set('gemail','');GSHEET=null;store.set('gsheet',null);$('g-list').innerHTML='';renderG();toast('Đã đăng xuất Google')};
+
 $('c-btest').onclick=async()=>{$('c-bnote').textContent='Đang thử…';try{const j=await api({action:'ping'});BR.name=j.name;store.set('bridge',BR);$('c-bnote').textContent='Kết nối được sheet: '+j.name}catch(e){$('c-bnote').textContent='Không kết nối được: '+e.message}};
 
 /* ===== Nhận lô: check cước, Excel, ghi sổ ===== */
