@@ -29,7 +29,14 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import com.google.android.gms.auth.api.identity.AuthorizationRequest;
+import com.google.android.gms.auth.api.identity.AuthorizationResult;
+import com.google.android.gms.auth.api.identity.Identity;
+import com.google.android.gms.common.api.Scope;
 import java.io.File;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Arrays;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,6 +49,7 @@ public class MainActivity extends Activity {
   private String[] pending = null;
   private boolean pendingSv = false;
   private static final int PICK = 7;
+  private static final int AUTH = 8;
   private static final String OTP_URL = "https://otpsms.pro/Electric";
 
   @Override protected void onCreate(Bundle s) {
@@ -135,7 +143,33 @@ public class MainActivity extends Activity {
     return w;
   }
 
+  private void googleAuth() {
+    AuthorizationRequest req = AuthorizationRequest.builder().setRequestedScopes(Arrays.asList(
+      new Scope("https://www.googleapis.com/auth/spreadsheets"),
+      new Scope("https://www.googleapis.com/auth/drive.metadata.readonly"),
+      new Scope("email"))).build();
+    Identity.getAuthorizationClient(this).authorize(req)
+      .addOnSuccessListener(r -> {
+        if (r.hasResolution()) {
+          try { startIntentSenderForResult(r.getPendingIntent().getIntentSender(), AUTH, null, 0, 0, 0); }
+          catch (Exception e) { authErr(e.getMessage()); }
+        } else authOk(r);
+      })
+      .addOnFailureListener(e -> authErr(e.getMessage()));
+  }
+  private void authOk(AuthorizationResult r) {
+    String t = r.getAccessToken();
+    if (t == null) { authErr("Không nhận được quyền truy cập"); return; }
+    toSo("__gAuth", "{\"token\":" + org.json.JSONObject.quote(t) + "}");
+  }
+  private void authErr(String m) { toSo("__gAuth", "{\"err\":" + org.json.JSONObject.quote(m == null ? "Lỗi đăng nhập Google" : m) + "}"); }
+
   @Override protected void onActivityResult(int req, int res, Intent data) {
+    if (req == AUTH) {
+      try { authOk(Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data)); }
+      catch (Exception e) { authErr("Anh đã hủy hoặc Google từ chối: " + e.getMessage()); }
+      return;
+    }
     if (req == PICK && fileCb != null) {
       Uri[] r = null;
       if (res == RESULT_OK && data != null && data.getData() != null) r = new Uri[]{ data.getData() };
@@ -152,6 +186,25 @@ public class MainActivity extends Activity {
   }
 
   class Bridge {
+    @JavascriptInterface public void googleAuth() { runOnUiThread(() -> MainActivity.this.googleAuth()); }
+    @JavascriptInterface public void http(String id, String method, String url, String body, String token) {
+      new Thread(() -> {
+        int code = 0; String out = "";
+        try {
+          HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+          c.setRequestMethod(method); c.setConnectTimeout(20000); c.setReadTimeout(60000);
+          if (token != null && !token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
+          if (body != null && !body.isEmpty()) {
+            c.setDoOutput(true); c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            try (OutputStream o = c.getOutputStream()) { o.write(body.getBytes("UTF-8")); }
+          }
+          code = c.getResponseCode();
+          InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+          if (in != null) { java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream(); byte[] buf = new byte[8192]; int k; while ((k = in.read(buf)) > 0) bo.write(buf, 0, k); out = bo.toString("UTF-8"); in.close(); }
+        } catch (Exception e) { code = 0; out = String.valueOf(e.getMessage()); }
+        toSo("__gHttp", "{\"id\":" + org.json.JSONObject.quote(id) + ",\"status\":" + code + ",\"body\":" + org.json.JSONObject.quote(out) + "}");
+      }).start();
+    }
     @JavascriptInterface public void check(String codesJson, String server) {
       runOnUiThread(() -> {
         if (!onElectric()) {
