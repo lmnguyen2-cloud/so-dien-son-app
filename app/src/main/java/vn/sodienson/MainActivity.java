@@ -50,6 +50,8 @@ public class MainActivity extends Activity {
   private boolean pendingSv = false;
   private static final int PICK = 7;
   private static final int AUTH = 8;
+  private static final int ACC = 9;
+  private static final String ZALO = "com.zing.zalo";
   private static final String OTP_URL = "https://otpsms.pro/Electric";
 
   @Override protected void onCreate(Bundle s) {
@@ -109,6 +111,12 @@ public class MainActivity extends Activity {
     otp.evaluateJavascript(js, null);
   }
 
+  private void sendTo(Intent i) {
+    Intent z = new Intent(i); z.setPackage(ZALO);
+    if (z.resolveActivity(getPackageManager()) != null) { try { startActivity(z); return; } catch (Exception e) { } }
+    startActivity(Intent.createChooser(i, "Gửi qua"));
+  }
+
   private void injectTram(boolean toggle) {
     String guard = toggle ? "" : "if(!document.getElementById('sds-tram'))";
     otp.evaluateJavascript(guard + "{" + tramJs + "}", null);
@@ -144,10 +152,13 @@ public class MainActivity extends Activity {
   }
 
   private void googleAuth() {
-    AuthorizationRequest req = AuthorizationRequest.builder().setRequestedScopes(Arrays.asList(
+    AuthorizationRequest.Builder bd = AuthorizationRequest.builder().setRequestedScopes(Arrays.asList(
       new Scope("https://www.googleapis.com/auth/spreadsheets"),
       new Scope("https://www.googleapis.com/auth/drive.metadata.readonly"),
-      new Scope("email"))).build();
+      new Scope("email")));
+    String acct = getSharedPreferences("sds", MODE_PRIVATE).getString("gacct", null);
+    if (acct != null) bd.setAccount(new android.accounts.Account(acct, "com.google"));
+    AuthorizationRequest req = bd.build();
     Identity.getAuthorizationClient(this).authorize(req)
       .addOnSuccessListener(r -> {
         if (r.hasResolution()) {
@@ -165,6 +176,13 @@ public class MainActivity extends Activity {
   private void authErr(String m) { toSo("__gAuth", "{\"err\":" + org.json.JSONObject.quote(m == null ? "Lỗi đăng nhập Google" : m) + "}"); }
 
   @Override protected void onActivityResult(int req, int res, Intent data) {
+    if (req == ACC) {
+      String name = data == null ? null : data.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME);
+      if (res != RESULT_OK || name == null) { authErr("Chưa chọn tài khoản Google"); return; }
+      getSharedPreferences("sds", MODE_PRIVATE).edit().putString("gacct", name).apply();
+      googleAuth();
+      return;
+    }
     if (req == AUTH) {
       try { authOk(Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data)); }
       catch (Exception e) { authErr("Anh đã hủy hoặc Google từ chối: " + e.getMessage()); }
@@ -187,6 +205,30 @@ public class MainActivity extends Activity {
 
   class Bridge {
     @JavascriptInterface public void googleAuth() { runOnUiThread(() -> MainActivity.this.googleAuth()); }
+    @JavascriptInterface public void googleAuthChoose() {
+      runOnUiThread(() -> {
+        try { startActivityForResult(android.accounts.AccountManager.newChooseAccountIntent(null, null, new String[]{"com.google"}, null, null, null, null), ACC); }
+        catch (Exception e) { MainActivity.this.googleAuth(); }
+      });
+    }
+    @JavascriptInterface public void googleLogout() { getSharedPreferences("sds", MODE_PRIVATE).edit().remove("gacct").apply(); }
+    @JavascriptInterface public String googleAccount() { return getSharedPreferences("sds", MODE_PRIVATE).getString("gacct", ""); }
+    @JavascriptInterface public void shareZalo(String text) {
+      runOnUiThread(() -> {
+        Intent i = new Intent(Intent.ACTION_SEND); i.setType("text/plain"); i.putExtra(Intent.EXTRA_TEXT, text);
+        sendTo(i);
+      });
+    }
+    @JavascriptInterface public void shareFile(String name, String b64, String mime) {
+      try {
+        byte[] d = Base64.decode(b64, Base64.DEFAULT);
+        File dir = new File(getCacheDir(), "share"); dir.mkdirs();
+        File f = new File(dir, name); try (FileOutputStream o = new FileOutputStream(f)) { o.write(d); }
+        Uri u = androidx.core.content.FileProvider.getUriForFile(MainActivity.this, "vn.sodienson.files", f);
+        Intent i = new Intent(Intent.ACTION_SEND); i.setType(mime); i.putExtra(Intent.EXTRA_STREAM, u); i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        runOnUiThread(() -> sendTo(i));
+      } catch (Exception e) { runOnUiThread(() -> Toast.makeText(MainActivity.this, "Không gửi được: " + e.getMessage(), Toast.LENGTH_LONG).show()); }
+    }
     @JavascriptInterface public void http(String id, String method, String url, String body, String token) {
       new Thread(() -> {
         int code = 0; String out = "";

@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
   namespace 'vn.sodienson'
   compileSdk 34
-  defaultConfig { applicationId "vn.sodienson"; minSdk 26; targetSdk 34; versionCode 8; versionName "1.5" }
+  defaultConfig { applicationId "vn.sodienson"; minSdk 26; targetSdk 34; versionCode 9; versionName "1.6" }
   signingConfigs { sds { storeFile file('sds.keystore'); storePassword 'sodienson'; keyAlias 'sds'; keyPassword 'sodienson' } }
   buildTypes {
     debug { signingConfig signingConfigs.sds }
@@ -13,4 +13,5 @@ android {
 
 dependencies {
   implementation 'com.google.android.gms:play-services-auth:21.2.0'
+  implementation 'androidx.core:core:1.13.1'
 }
