@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="vi"><head><base target="_top"><meta charset="utf-8">
+<style>
+/* Layout: một cột cho điện thoại — thẻ đại lý, form lấy đơn, danh sách đơn đang giữ; chế độ quản lý tách riêng */
+:root{--bg:#f3f5f4;--panel:#fff;--ink:#18201d;--muted:#5d6b66;--line:#d9e0dd;--accent:#0f7a55;--accent-ink:#fff;--soft:#e1f2ea;--warn:#b4540a;--warn-soft:#fbeedd;--bad:#b42318;--bad-soft:#fbe4e1;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--mono:ui-monospace,Consolas,"Roboto Mono",monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#111614;--panel:#1a211e;--ink:#e6ece9;--muted:#97a6a0;--line:#2c3632;--accent:#3fbf8c;--accent-ink:#06130d;--soft:#16352a;--warn:#f0a050;--warn-soft:#3a2a17;--bad:#f2836f;--bad-soft:#3d1d18;color-scheme:dark}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);padding:12px max(14px,env(safe-area-inset-left)) 40px}
+.wrap{max-width:640px;margin:0 auto;display:grid;gap:12px}
+h1{font-size:20px;margin:4px 0 0}h2{font-size:15px;margin:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px;min-width:0}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+input,select{font:16px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 120px;min-width:0}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:10px 14px;font:600 15px var(--sans);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}.btn.warn{border-color:var(--bad);background:transparent;color:var(--bad)}
+.btn:disabled{opacity:.5}.btns{display:flex;gap:8px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 11px;font:14px var(--sans);cursor:pointer}
+.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--soft);color:var(--accent);font-weight:700}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);border-radius:999px;padding:7px 4px;font:15px var(--sans);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--accent);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.hello{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.rate{font:800 28px var(--mono);color:var(--accent)}.muted{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat{border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+.stat b{display:block;font:700 16px var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.stat small{color:var(--muted);font-size:12px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}td.n{text-align:right;font-family:var(--mono)}
+.pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700}.ok{background:var(--soft);color:var(--accent)}.w{background:var(--warn-soft);color:var(--warn)}.b{background:var(--bad-soft);color:var(--bad)}
+.msg{padding:9px 11px;border-radius:8px;font-size:14px}.msg.err{background:var(--bad-soft);color:var(--bad)}.msg.okm{background:var(--soft);color:var(--accent)}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:13px var(--sans);justify-self:center}
+input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#c-agents input:not([type=checkbox]){min-width:96px}
+@media (max-width:440px){.stats{grid-template-columns:1fr 1fr}}
+</style></head>
+<body><div class="wrap">
+<h1>Kho đơn Điện Sơn</h1>
+
+<!-- ĐĂNG NHẬP -->
+<div class="card" id="v-login">
+  <h2>Nhập mã PIN của anh/chị</h2>
+  <p class="muted" style="margin:0">Mã PIN do chủ kho cấp. Máy này sẽ nhớ mã cho lần sau.</p>
+  <input id="pin" inputmode="numeric" autocomplete="off" placeholder="Mã PIN">
+  <button class="btn" id="go-login">Vào kho</button>
+  <div id="login-msg"></div>
+</div>
+
+<!-- ĐẠI LÝ -->
+<div id="v-agent" hidden style="display:grid;gap:12px">
+  <div class="card">
+    <div class="hello"><div><div class="muted">Xin chào</div><b id="a-name" style="font-size:18px"></b><div class="muted" id="a-limit"></div></div>
+      <div style="text-align:right"><div class="muted">% nhận của anh/chị</div><div class="rate" id="a-rate"></div></div></div>
+    <div class="muted" id="a-stock"></div>
+    <div class="chips" id="a-bands"></div>
+  </div>
+  <div class="card" id="take-card">
+    <h2>Lấy đơn</h2>
+    <label>Số tiền cần lấy<input id="t-target" inputmode="numeric" placeholder="vd 5.000.000"></label>
+    <div class="chips" id="t-chips"></div>
+    <div><div class="muted" style="font-weight:600;margin-bottom:4px">Số đơn</div>
+      <div class="seg" id="t-k"><button data-k="0" aria-pressed="true">Bất kỳ</button><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="x">Khác</button></div>
+      <input id="t-kx" inputmode="numeric" placeholder="Số đơn" hidden style="margin-top:6px;max-width:140px"></div>
+    <details><summary class="muted">Chọn dải tiền mỗi đơn</summary><div class="row" style="margin-top:8px"><label>Từ<input id="t-min" inputmode="numeric" placeholder="0"></label><label>Đến<input id="t-max" inputmode="numeric" placeholder="0"></label></div></details>
+    <button class="btn" id="t-go">Lấy đơn</button>
+    <div id="t-msg"></div>
+  </div>
+  <div class="card">
+    <h2>Đơn anh/chị đang giữ</h2>
+    <div class="muted" id="m-hold"></div>
+    <div class="stats" id="m-stats"></div>
+    <div class="tbl"><table id="m-tbl"></table></div>
+    <div class="btns"><button class="btn" id="m-copy">Copy danh sách</button><button class="btn ghost" id="m-done">Báo đã làm xong</button><button class="btn warn" id="m-ret">Trả lại đơn đã chọn</button></div>
+    <div id="m-msg"></div>
+  </div>
+  <div class="card" id="d-card" hidden>
+    <h2>Đã báo làm xong (3 ngày gần đây)</h2>
+    <div class="tbl"><table id="d-tbl"></table></div>
+  </div>
+  <button class="link" id="logout">Đổi mã PIN / thoát</button>
+</div>
+
+<!-- QUẢN LÝ -->
+<div id="v-admin" hidden style="display:grid;gap:12px">
+  <div class="card" id="ad-login">
+    <h2>Quản lý kho</h2>
+    <input id="ad-key" type="password" placeholder="Mã quản lý">
+    <button class="btn" id="ad-go">Vào</button><div id="ad-msg"></div>
+  </div>
+  <div id="ad-main" hidden style="display:grid;gap:12px">
+    <div class="card">
+      <h2>Cài đặt kho</h2>
+      <label>Link Google Sheet sổ tháng (T11, sang tháng 12 dán link T12)<input id="c-sheet"></label>
+      <div class="muted" id="c-info"></div>
+      <div class="row"><label>Giữ đơn tối đa (phút)<input id="c-hold" inputmode="numeric"></label><label>Trạng thái kho<select id="c-open"><option value="1">Đang mở</option><option value="0">Tạm đóng</option></select></label></div>
+    </div>
+    <div class="card">
+      <h2>Đại lý được lấy đơn</h2>
+      <p class="muted" style="margin:0">Tên ghi sổ = tên ở cột D (vd PHUC). Giới hạn = tổng tiền tối đa được giữ cùng lúc (0 = không giới hạn).</p>
+      <div class="tbl"><table id="c-agents"></table></div>
+      <div class="btns"><button class="btn ghost" id="c-add">+ Thêm đại lý</button><button class="btn" id="c-save">Lưu cài đặt</button></div>
+      <div id="c-msg"></div>
+    </div>
+    <div class="card">
+      <h2>Đơn đang được giữ / đã báo xong</h2>
+      <div class="tbl"><table id="r-tbl"></table></div>
+      <div class="btns"><button class="btn warn" id="r-rel">Trả các đơn đã chọn về kho</button><button class="btn ghost" id="r-ref">Làm mới</button></div>
+    </div>
+  </div>
+  <button class="link" id="to-agent">Về trang đại lý</button>
+</div>
+<button class="link" id="to-admin">Chủ kho: quản lý</button>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const dots=n=>String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const num=s=>{const d=String(s||'').replace(/[^\d]/g,'');return d?parseInt(d,10):0};
+const pct=p=>String(+(+p).toFixed(3)).replace('.',',')+'%';
+const short=n=>n>=1e6?(Math.round(n/1e5)/10+'Tr').replace('.',','):Math.round(n/1e3)+'K';
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls={get(k){try{return localStorage.getItem('kho_'+k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem('kho_'+k):localStorage.setItem('kho_'+k,v)}catch(e){}}};
+function call(fn,...a){return new Promise((ok,no)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>no(new Error(e&&e.message||String(e))))[fn](...a))}
+function msg(id,t,kind){$(id).innerHTML=t?`<div class="msg ${kind||'err'}">${esc(t)}</div>`:''}
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>msg('m-msg','Đã copy.','okm')).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();msg('m-msg','Đã copy.','okm')})}
+
+/* ---------- Đại lý ---------- */
+let PIN=ls.get('pin'),V=null,K=0;
+function showAgent(v){V=v;$('v-login').hidden=true;$('v-agent').hidden=false;
+  $('a-name').textContent=v.name;$('a-rate').textContent=pct(v.rate);$('a-limit').textContent=v.limit?`Giữ tối đa ${dots(v.limit)}đ cùng lúc`:'';
+  $('a-stock').innerHTML=v.open?`Kho còn <b>${v.stock.n}</b> đơn · <b>${dots(v.stock.sum)}</b>`:'<span class="pill b">Kho đang tạm đóng</span>';
+  $('a-bands').innerHTML=v.stock.bands.map(b=>`<button data-b="${esc(b.t)}" disabled>${esc(b.t)} · ${b.n} đơn</button>`).join('');
+  $('take-card').hidden=!v.open;
+  const hold=v.mine.filter(x=>x.s==='hold'),done=v.mine.filter(x=>x.s==='done');
+  const sum=hold.reduce((t,x)=>t+x.amount,0),fee=sum*v.rate/100;
+  $('m-hold').textContent=hold.length?`Giữ tối đa ${v.hold} phút — quá hạn chưa báo xong thì đơn tự trả về kho.`:'Chưa giữ đơn nào. Nhập số tiền ở trên rồi bấm Lấy đơn.';
+  $('m-stats').innerHTML=hold.length?`<div class="stat"><small>${hold.length} đơn</small><b>${dots(sum)}</b></div><div class="stat"><small>Phí ${pct(v.rate)}</small><b>${(Math.round(fee*100)/100).toFixed(2).replace('.',',')}</b></div><div class="stat"><small>Tạm tính bank</small><b>${dots(sum-fee)}</b></div>`:'';
+  $('m-tbl').innerHTML=hold.length?'<tr><th></th><th>Mã</th><th style="text-align:right">Số tiền</th><th>Còn giữ</th></tr>'+hold.map(x=>{const left=Math.max(0,Math.round((x.t+v.hold*60000-Date.now())/60000));return `<tr><td><input type="checkbox" data-c="${x.code}" style="width:auto"></td><td>${x.code}</td><td class="n">${dots(x.amount)}</td><td><span class="pill ${left<10?'b':'ok'}">${left} phút</span></td></tr>`}).join('')+`<tr><td></td><td><b>Tổng</b></td><td class="n"><b>${dots(sum)}</b></td><td></td></tr>`:'';
+  ['m-copy','m-done','m-ret'].forEach(i=>$(i).disabled=!hold.length);
+  $('d-card').hidden=!done.length;$('d-tbl').innerHTML='<tr><th>Mã</th><th style="text-align:right">Số tiền</th></tr>'+done.map(x=>`<tr><td>${x.code}</td><td class="n">${dots(x.amount)}</td></tr>`).join('');
+  $('t-chips').innerHTML=[1,2,3,5,10,15,20].map(m=>`<button data-v="${m*1e6}" aria-pressed="${num($('t-target').value)===m*1e6}">${m}Tr</button>`).join('');
+}
+async function login(p){msg('login-msg','Đang vào…','okm');try{const v=await call('agentInfo',p);PIN=p;ls.set('pin',p);msg('login-msg','');showAgent(v)}catch(e){msg('login-msg',e.message);ls.set('pin',null)}}
+$('go-login').onclick=()=>login($('pin').value.trim());
+$('pin').onkeydown=e=>{if(e.key==='Enter')login($('pin').value.trim())};
+$('logout').onclick=()=>{ls.set('pin',null);PIN=null;$('v-agent').hidden=true;$('v-login').hidden=false;$('pin').value=''};
+$('t-chips').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('t-target').value=dots(+b.dataset.v);V&&showAgent(V)};
+$('t-target').oninput=()=>{const n=num($('t-target').value);$('t-target').value=n?dots(n):''};
+$('t-k').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('t-k').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));K=b.dataset.k;$('t-kx').hidden=K!=='x'};
+$('t-go').onclick=async()=>{const target=num($('t-target').value);if(!target){msg('t-msg','Nhập số tiền cần lấy');return}
+  const k=K==='x'?num($('t-kx').value):+K;$('t-go').disabled=true;msg('t-msg','Đang chọn đơn…','okm');
+  try{const v=await call('agentTake',PIN,{target,k,min:num($('t-min').value),max:num($('t-max').value)});showAgent(v);
+    const got=v.mine.filter(x=>v.picked.includes(x.code)),s=got.reduce((t,x)=>t+x.amount,0);msg('t-msg',`Đã lấy ${got.length} đơn · ${dots(s)}đ. Danh sách ở bên dưới.`,'okm')}
+  catch(e){msg('t-msg',e.message)}finally{$('t-go').disabled=false}};
+const sel=()=>[...document.querySelectorAll('#m-tbl input:checked')].map(i=>i.dataset.c);
+$('m-copy').onclick=()=>{const h=V.mine.filter(x=>x.s==='hold');copy(h.map(x=>x.code+'\t'+dots(x.amount)).join('\n')+'\nTổng\t'+dots(h.reduce((t,x)=>t+x.amount,0)))};
+let armD=0;
+$('m-done').onclick=async()=>{const c=sel().length?sel():V.mine.filter(x=>x.s==='hold').map(x=>x.code);
+  if(!armD){armD=1;setTimeout(()=>armD=0,10000);msg('m-msg',`Báo đã làm xong ${c.length} đơn? Bấm lần nữa để xác nhận.`,'okm');return}armD=0;
+  try{showAgent(await call('agentDone',PIN,c));msg('m-msg','Đã báo chủ kho. Cảm ơn anh/chị!','okm')}catch(e){msg('m-msg',e.message)}};
+$('m-ret').onclick=async()=>{const c=sel();if(!c.length){msg('m-msg','Tích chọn đơn muốn trả lại trước.');return}
+  try{showAgent(await call('agentReturn',PIN,c));msg('m-msg',`Đã trả ${c.length} đơn về kho.`,'okm')}catch(e){msg('m-msg',e.message)}};
+setInterval(()=>{if(V&&!$('v-agent').hidden)showAgent(V)},60000);
+
+/* ---------- Quản lý ---------- */
+let KEY=null,AD=null;
+function rowA(a){return `<tr><td><input data-f="name" value="${esc(a.name||'')}" placeholder="Phúc"></td><td><input data-f="d" value="${esc(a.d||'')}" placeholder="PHUC"></td><td><input data-f="pin" value="${esc(a.pin||'')}" inputmode="numeric"></td><td><input data-f="rate" value="${esc(a.rate!=null?String(a.rate).replace('.',','):'')}" inputmode="decimal" style="width:70px"></td><td><input data-f="limit" value="${a.limit?dots(a.limit):''}" inputmode="numeric" style="width:110px"></td><td><input type="checkbox" data-f="on" ${a.on!==false?'checked':''} style="width:auto"></td></tr>`}
+function showAdmin(d){AD=d;$('ad-login').hidden=true;$('ad-main').hidden=false;const c=d.cfg;
+  $('c-sheet').value=c.sheet||'';$('c-hold').value=c.hold||60;$('c-open').value=c.open!==false?'1':'0';
+  $('c-info').textContent=c.sheet?`Sổ: ${d.sheetName}${d.stock?` · kho còn ${d.stock.n} đơn · ${dots(d.stock.sum)}`:''}`:'Chưa có link sổ tháng.';
+  $('c-agents').innerHTML='<tr><th>Tên hiển thị</th><th>Tên ghi sổ (cột D)</th><th>PIN</th><th>%</th><th>Giới hạn (đ)</th><th>Bật</th></tr>'+(c.agents.length?c.agents:[{}]).map(rowA).join('');
+  $('r-tbl').innerHTML='<tr><th></th><th>Mã</th><th>Đại lý</th><th style="text-align:right">Số tiền</th><th>Trạng thái</th><th>Lúc</th></tr>'+(d.res.length?d.res.map(x=>`<tr><td><input type="checkbox" data-c="${x.code}" style="width:auto"></td><td>${x.code}</td><td>${esc(x.a)}</td><td class="n">${dots(x.amount)}</td><td>${x.s==='done'?'<span class="pill ok">đã xong</span>':'<span class="pill w">đang giữ</span>'}</td><td>${new Date(x.t).toLocaleString('vi-VN')}</td></tr>`).join(''):'<tr><td colspan="6" class="muted">Chưa có đơn nào được lấy.</td></tr>')}
+async function adLogin(){KEY=$('ad-key').value;msg('ad-msg','Đang vào…','okm');try{showAdmin(await call('adminInfo',KEY));msg('ad-msg','')}catch(e){msg('ad-msg',e.message)}}
+$('ad-go').onclick=adLogin;
+$('c-add').onclick=()=>$('c-agents').insertAdjacentHTML('beforeend',rowA({}));
+$('c-save').onclick=async()=>{const agents=[...$('c-agents').querySelectorAll('tr')].slice(1).map(tr=>{const o={};tr.querySelectorAll('[data-f]').forEach(i=>o[i.dataset.f]=i.type==='checkbox'?i.checked:i.value);return o});
+  msg('c-msg','Đang lưu…','okm');try{showAdmin(await call('adminSave',KEY,{sheet:$('c-sheet').value,hold:num($('c-hold').value)||60,open:$('c-open').value==='1',agents}));msg('c-msg','Đã lưu.','okm')}catch(e){msg('c-msg',e.message)}};
+$('r-rel').onclick=async()=>{const c=[...$('r-tbl').querySelectorAll('input:checked')].map(i=>i.dataset.c);if(!c.length)return;try{showAdmin(await call('adminRelease',KEY,c))}catch(e){alert(e.message)}};
+$('r-ref').onclick=async()=>{try{showAdmin(await call('adminInfo',KEY))}catch(e){}};
+$('to-admin').onclick=()=>{$('v-login').hidden=true;$('v-agent').hidden=true;$('v-admin').hidden=false;$('to-admin').hidden=true};
+$('to-agent').onclick=()=>{$('v-admin').hidden=true;$('to-admin').hidden=false;if(PIN&&V)showAgent(V);else $('v-login').hidden=false};
+if(PIN)login(PIN);
+</script></body></html>
