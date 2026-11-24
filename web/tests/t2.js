@@ -1,0 +1,14 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:400,height:900}});
+const errs=[];p.on('pageerror',e=>errs.push(e.message));
+await p.goto('file://'+require('path').join(__dirname,'..','so-dien-son.html'));
+await p.setInputFiles('#t-file',process.env.T11_CSV||'t11.csv');await p.waitForTimeout(800);
+await p.click('#t-lo');
+console.log(await p.$eval('#l-stats',e=>e.innerText.replace(/\n/g,' | ')));
+console.log(await p.$eval('#l-group',e=>e.innerText));
+console.log(await p.$eval('#l-note',e=>e.innerText));
+await p.fill('#l-name','KIEUMY');await p.dispatchEvent('#l-name','change');await p.fill('#l-rate','1,5');
+await p.click('#l-tobank');await p.waitForTimeout(300);
+console.log((await p.$eval('#b-msg',e=>e.textContent)));
+await p.click('#t-lo');await p.screenshot({path:'lo.png',fullPage:false});
+console.log('errs',errs,await p.evaluate(()=>document.body.scrollWidth));await b.close()})();

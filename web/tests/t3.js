@@ -1,0 +1,22 @@
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();const ctx=await b.newContext({acceptDownloads:true});const p=await ctx.newPage();
+const errs=[];p.on('pageerror',e=>errs.push(e.message));
+await p.route('https://otpsms.pro/**',async r=>{const req=r.request();
+  if(req.method()==='POST'){const body=req.postData()||'';const codes=(body.match(/PB\d{11}/g)||[]);if(/name="Server"\r\n\r\n1/.test(body))return r.fulfill({contentType:'text/html',body:'<p>Lỗi server</p>'});
+    const rows=codes.map((c,i)=>`<tr><td>${i}</td><td>x</td><td>${c}</td><td>KH</td><td>${c.endsWith('45881')?'0':(300000+i*1000).toLocaleString('en')}</td><td>${c.endsWith('45881')?'Thành công':'Chưa thanh toán'}</td></tr>`).join('');
+    return r.fulfill({contentType:'text/html',body:`<table>${rows}</table>`});}
+  return r.fulfill({contentType:'text/html',body:'<form action="/electric/CheckBill" method="post"><select name="Server"><option value="1">Server 1</option><option value="2">Server 2</option></select><textarea id="CodeBill" name="CodeBill"></textarea></form>'});});
+await p.route('https://script.google.com/**',r=>{const j=JSON.parse(r.request().postData());
+  if(j.action==='check')return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,found:{'PB11070026481':[{row:3319,d:'NGOHOANG'}]}})});
+  return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,added:j.rows.length,skipped:0,from:3960,to:3960+j.rows.length-1,echo:j.rows.slice(0,2)})})});
+await p.goto('https://otpsms.pro/Electric');
+await p.evaluate(()=>localStorage.setItem('sds_tram_cfg',JSON.stringify({url:'https://script.google.com/macros/s/X/exec',key:'k'})));
+await p.addScriptTag({content:fs.readFileSync(require('path').join(__dirname,'..','core.js'),'utf8')+fs.readFileSync(require('path').join(__dirname,'..','tram.js'),'utf8')});
+await p.fill('#sds-tram [data-dl]','TUNG');
+await p.fill('#sds-tram [data-in]','45881 .26481 .24471 .24339 .26519 =64 kh = 35769621');
+await p.click('#sds-tram [data-go]');await p.waitForTimeout(2500);
+console.log(await p.$eval('#sds-tram [data-sum]',e=>e.innerText));console.log(await p.$eval('#sds-tram [data-out] tr:nth-child(2)',e=>e.innerText));
+const [dl]=await Promise.all([p.waitForEvent('download'),p.click('#sds-tram [data-xl]')]);await dl.saveAs('test.xlsx');console.log('file',dl.suggestedFilename());
+await p.click('#sds-tram [data-t11]');console.log(await p.$eval('#sds-tram [data-st]',e=>e.innerText));
+await p.click('#sds-tram [data-t11]');await p.waitForTimeout(500);console.log(await p.$eval('#sds-tram [data-st]',e=>e.innerText));
+console.log('errs',errs);await b.close()})();

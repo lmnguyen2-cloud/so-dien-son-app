@@ -1,0 +1,15 @@
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:390,height:900}});const errs=[];p.on('pageerror',e=>errs.push(e.message));
+const mk=fs.readFileSync('mock.js','utf8').replace('module.exports=makeEnv;','');const code=fs.readFileSync('Code.gs','utf8');
+await p.addInitScript(`${mk};const env=makeEnv();window.__env=env;const {PropertiesService,SpreadsheetApp,LockService,Utilities,HtmlService}=env;${code};
+ adminSave('doi-ma-quan-ly',{sheet:'1fvuQYbjy_IAXPupJg8Ss6RTfRZZbIgGQY8js3q4kEJI',hold:60,open:true,agents:[{name:'Phúc',d:'PHUC',pin:'1234',rate:'2',limit:'10000000'}]});
+ const fns={agentInfo,agentTake,agentDone,agentReturn,adminInfo,adminSave,adminRelease};
+ window.google={script:{get run(){let ok=()=>{},no=()=>{};const r=new Proxy({},{get:(t,k)=>k==='withSuccessHandler'?(f=>{ok=f;return r}):k==='withFailureHandler'?(f=>{no=f;return r}):((...a)=>setTimeout(()=>{try{ok(JSON.parse(JSON.stringify(fns[k](...a))))}catch(e){no(e)}},20))});return r}}};`);
+await p.goto('file://'+process.cwd()+'/Index.html');
+await p.fill('#pin','1234');await p.click('#go-login');await p.waitForTimeout(200);
+await p.click('#t-chips button[data-v="5000000"]');await p.click('#t-go');await p.waitForTimeout(200);
+console.log(await p.$eval('#t-msg',e=>e.innerText));console.log(await p.$eval('#m-stats',e=>e.innerText.replace(/\n/g,' | ')));
+await p.screenshot({path:'agent.png',fullPage:true});
+await p.click('#to-admin');await p.fill('#ad-key','doi-ma-quan-ly');await p.click('#ad-go');await p.waitForTimeout(200);
+await p.screenshot({path:'admin.png',fullPage:true});
+console.log('errs',errs,await p.evaluate(()=>document.body.scrollWidth));await b.close()})();
