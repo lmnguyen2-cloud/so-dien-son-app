@@ -204,6 +204,12 @@ public class MainActivity extends Activity {
   }
 
   class Bridge {
+    @JavascriptInterface public String paste() {
+      try { ClipboardManager c = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (c.hasPrimaryClip() && c.getPrimaryClip().getItemCount() > 0) { CharSequence t = c.getPrimaryClip().getItemAt(0).coerceToText(MainActivity.this); return t == null ? "" : t.toString(); }
+      } catch (Exception e) { }
+      return "";
+    }
     @JavascriptInterface public void googleAuth() { runOnUiThread(() -> MainActivity.this.googleAuth()); }
     @JavascriptInterface public void googleAuthChoose() {
       runOnUiThread(() -> {

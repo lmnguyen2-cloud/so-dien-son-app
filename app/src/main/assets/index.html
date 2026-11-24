@@ -98,6 +98,7 @@ details summary{cursor:pointer;font-weight:600}
       <label>Bậc phí (cột F)<select id="l-tier"><option value="auto">Tự theo đại lý</option><option value="3">Bậc 3</option><option value="2">Bậc 2</option></select></label>
     </div>
     <label>Dán nguyên tin nhắn (5 số cuối, mã đủ, có "=64", "kh = …" cũng được)<textarea id="l-in" spellcheck="false" style="min-height:110px"></textarea></label>
+    <div class="btns"><button class="btn" id="l-paste">Xóa cũ &amp; dán mới</button><button class="btn ghost" id="l-clear">Xóa</button></div>
     <div class="row" style="align-items:end"><label>Hoặc chọn ảnh / file Excel đại lý gửi<input type="file" id="l-file" accept="image/*,.xlsx,.csv,.txt"></label></div>
     <p class="hint" id="l-fnote"></p>
     <p class="hint" id="l-note"></p>
@@ -766,7 +767,7 @@ function renderLo(){
     const hit=idx[code]||[];const h=hit[0]||DUP[code];
     rows.push({tk,code,dup,amount:h?h.amount:null,lot:h?h.lot||'':'',d:h?h.d||'':'',row:h?h.row:null,n:hit.length||(DUP[code]?1:0),c:CH[code]||null});
   });
-  const uniq=rows.filter(r=>!r.dup);const checked=uniq.some(r=>r.c);
+  const uniq=rows.filter(r=>!r.dup);uniq.forEach((r,i)=>r.stt=i+1);const checked=uniq.some(r=>r.c);
   const kd=r=>!r.c?'':(r.c.rem==null||/lỗi|không|sai|error|fail/i.test(r.c.st)&&!/thành công/i.test(r.c.st)?'err':(r.c.rem>0?'ok':'zero'));
   uniq.forEach(r=>r.k=kd(r));
   if(checked){
@@ -927,13 +928,20 @@ window.__sdsDone=async R=>{$('l-check').disabled=false;const m={};(R.rows||[]).f
 $('l-check').onclick=()=>{const codes=(window._lo||[]).map(r=>r.code);if(!codes.length){toast('Chưa có mã');return}
   if(!HAS_NATIVE){copyText(codes.join('\n'),$('l-tbl'));$('l-chknote').textContent='Bản web không check thẳng được (trình duyệt chặn). Đã copy mã — mở otpsms, bấm Trạm check SĐS rồi dán. Check thẳng trong app chỉ có ở bản Android.';return}
   window._chk={};$('l-check').disabled=true;$('l-chknote').textContent='Đang gửi sang otpsms…';clearTimeout(window._wd);window._wd=setTimeout(()=>{if($('l-check').disabled){$('l-check').disabled=false;$('l-chknote').textContent='Không nhận được kết quả từ otpsms. Mở nút Check cước ở dưới xem đã đăng nhập chưa, rồi bấm Check cước lại.'}},180000);Native.check(JSON.stringify(codes),$('l-sv').value||'')};
+function loChunks(){const P=loParts();const by=a=>a.slice().sort((x,y)=>x.stt-y.stt);
+  const L=P.ok.map(r=>`${r.stt}\t${r.code}\t${Calc.dots(r.c.rem)}`)
+    .concat(by(P.dup).map(r=>`${r.stt}\t${r.code}\t${Calc.dots(r.c.rem)} (trùng sổ, không tính)`))
+    .concat(by(P.zero).map(r=>`${r.stt}\t${r.code}\t0đ (đã thanh toán)`))
+    .concat(by(P.err).map(r=>`${r.stt}\t${r.code}\tlỗi check`));
+  const sum=P.ok.reduce((t,r)=>t+r.c.rem,0),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100));
+  if(ch.length)ch[ch.length-1].push(`\t\t${Calc.dots(sum)}`);return{ch:ch.map(c=>c.join('\n')),n:P.ok.length}}
 function loParts(){const L=window._lo||[];return{ok:L.filter(r=>r.k==='ok'&&!r.n).sort((a,b)=>a.c.rem-b.c.rem||a.code.localeCompare(b.code)),dup:L.filter(r=>r.k==='ok'&&r.n),zero:L.filter(r=>r.k==='zero'),err:L.filter(r=>r.k==='err'||!r.c)}}
 $('l-xl').onclick=()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast('Check cước trước đã');return}
   const rows=[[{v:'STT',s:1},{v:'Mã hóa đơn',s:1},{v:'Tổng tiền',s:1},{v:'Khách làm',s:1}]];let i=0,sum=0;
-  P.ok.forEach(r=>{i++;sum+=r.c.rem;rows.push([i,r.code,{v:r.c.rem,s:2},''])});
-  P.dup.forEach(r=>{i++;rows.push([i,r.code,{v:r.c.rem,s:2},`Trùng sổ dòng ${r.row||'?'}${r.d?' ('+r.d+')':''}, không tính`])});
-  P.zero.forEach(r=>{i++;rows.push([i,r.code,'','Đã thanh toán (0đ), không tính'])});
-  P.err.forEach(r=>{i++;rows.push([i,r.code,'','Lỗi check: '+(r.c?r.c.st:'chưa check')])});
+  P.ok.forEach(r=>{sum+=r.c.rem;rows.push([r.stt,r.code,{v:r.c.rem,s:2},''])});
+  P.dup.forEach(r=>{rows.push([r.stt,r.code,{v:r.c.rem,s:2},`Trùng sổ dòng ${r.row||'?'}${r.d?' ('+r.d+')':''}, không tính`])});
+  P.zero.forEach(r=>{rows.push([r.stt,r.code,'','Đã thanh toán (0đ), không tính'])});
+  P.err.forEach(r=>{rows.push([r.stt,r.code,'','Lỗi check: '+(r.c?r.c.st:'chưa check')])});
   rows.push(['',{v:'Tổng',s:1},{v:sum,s:3},'']);
   const name=loName(),fn=name.replace(/^(\S)(\S*)/,(m,a,b)=>a+b.toLowerCase())+'.xlsx',blob=XLW.xlsx(name,rows);
   if(window.__xlZalo){window.__xlZalo=false;blobUrl(blob).then(u=>zaloFile(fn,u,blob.type));return}
@@ -946,13 +954,17 @@ $('l-ins').onclick=async()=>{const P=loParts();if(!P.ok.length){toast('Không c�
   try{const j=await api({action:'insert',rows:P.ok.map(r=>[loName(),r.code,r.c.rem,Calc.tierRate(r.c.rem,t)/100])});$('l-chknote').textContent=`Đã ghi ${j.added} mã vào "${j.name}" (dòng ${j.from}–${j.to})${j.skipped?`, bỏ ${j.skipped} mã đã có`:''}. Dòng tổng đã cập nhật.`}
   catch(e){$('l-chknote').textContent='Không ghi được: '+e.message}};
 let msgIdx=0;
-$('l-msg').onclick=()=>{const P=loParts();if(!P.ok.length){toast('Check cước trước đã');return}const L=P.ok.map(r=>r.code+' '+Calc.dots(r.c.rem)),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100).join('\n'));
+$('l-msg').onclick=()=>{const {ch,n}=loChunks();if(!n){toast('Check cước trước đã');return}
   const k=msgIdx%ch.length;msgIdx++;copyText(ch[k],$('l-tbl'));$('l-chknote').textContent=`Đã copy phần ${k+1}/${ch.length}. Bấm lại để copy phần tiếp.`};
 ['l-day','l-tier','l-sv'].forEach(id=>$(id).addEventListener('input',renderLo));
 
 
 let zIdx=0;
-$('l-zmsg').onclick=()=>{const P=loParts();if(!P.ok.length){toast('Check cước trước đã');return}const L=P.ok.map(r=>r.code+' '+Calc.dots(r.c.rem)),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100).join('\n'));const k=zIdx%ch.length;zIdx++;zaloText(ch[k]);$('l-chknote').textContent=`Đã mở Zalo với phần ${k+1}/${ch.length}. Bấm lại để gửi phần tiếp.`};
+async function readClip(){if(window.Native&&Native.paste)return Native.paste();if(navigator.clipboard&&navigator.clipboard.readText)return await navigator.clipboard.readText();throw new Error('no')}
+function loReset(){window._chk={};window._dup={};msgIdx=0;zIdx=0;$('l-chknote').textContent='';delete $('l-in').dataset.sample}
+$('l-paste').onclick=async()=>{$('l-in').value='';loReset();try{const t=await readClip();if(!t||!t.trim())throw new Error('empty');$('l-in').value=t;renderLo();toast('Đã dán lô mới')}catch(e){renderLo();$('l-in').focus();toast('Đã xóa — nhấn giữ trong ô rồi chọn Dán')}};
+$('l-clear').onclick=()=>{$('l-in').value='';loReset();renderLo();$('l-in').focus()};
+$('l-zmsg').onclick=()=>{const {ch,n}=loChunks();if(!n){toast('Check cước trước đã');return}const k=zIdx%ch.length;zIdx++;zaloText(ch[k]);$('l-chknote').textContent=`Đã mở Zalo với phần ${k+1}/${ch.length}. Bấm lại để gửi phần tiếp.`};
 $('l-zxl').onclick=async()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast('Check cước trước đã');return}window.__xlZalo=true;$('l-xl').click()};
 $('f-zalo').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}const s=PICK.reduce((t,r)=>t+r.amount,0);zaloText(PICK.map(r=>r.code+'\t'+Calc.dots(r.amount)).join('\n')+'\nTổng\t'+Calc.dots(s))};
 
