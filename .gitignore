@@ -5,3 +5,4 @@ local.properties
 *.csv
 test.xlsx
 node_modules/
+web/*.min.js

@@ -1,5 +1,5 @@
-const fs=require('fs');const env=require('./mock')();
-const src=fs.readFileSync('Code.gs','utf8');
+const fs=require('fs');const env=require(require('path').join(__dirname,'mock'))();
+const src=fs.readFileSync(require('path').join(__dirname,'Code.gs'),'utf8');
 const f=new Function(...Object.keys(env).filter(k=>!['rows','props'].includes(k)),src+';return {adminSave,adminInfo,agentInfo,agentTake,agentDone,agentReturn,adminRelease,expire_,cfg_,res_,saveRes_};');
 const S=f(...Object.keys(env).filter(k=>!['rows','props'].includes(k)).map(k=>env[k]));
 const KEY='doi-ma-quan-ly';
