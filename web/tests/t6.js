@@ -15,5 +15,5 @@ await p.click('#l-check');await p.waitForTimeout(200);
 await p.click('#l-sub');console.log(await p.$eval('#l-chknote',e=>e.innerText));await p.click('#l-sub');await p.waitForTimeout(400);console.log(await p.$eval('#l-chknote',e=>e.innerText));
 console.log(JSON.stringify(await p.evaluate(()=>window.__S)));
 await p.click('#l-subimg');console.log('img',await p.evaluate(()=>window.__saved));
-await p.click('#t-cai');await p.click('#g-logout');await p.waitForTimeout(100);console.log(await p.$eval('#g-st',e=>e.innerText));
+await p.click('#t-more');await p.click('#t-cai');await p.click('#g-logout');await p.waitForTimeout(100);console.log(await p.$eval('#g-st',e=>e.innerText));
 console.log('errs',errs);await b.close()})();

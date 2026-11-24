@@ -27,6 +27,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .brand h1{font-size:19px;margin:0;letter-spacing:-.01em}
 .brand span{color:var(--muted);font-size:13px}
 nav{display:flex;gap:6px;margin-top:10px;overflow-x:auto;scrollbar-width:none}
+#t-more{flex:0 0 auto;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 14px;font:600 14px var(--sans);cursor:pointer}
 nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:7px 14px;font:600 14px var(--sans);cursor:pointer}
 nav button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 section.tab{display:grid;gap:14px;margin-top:16px}
@@ -77,9 +78,13 @@ details summary{cursor:pointer;font-weight:600}
   <div class="brand"><h1>Sổ Điện Sơn</h1><select id="theme" aria-label="Giao diện" style="width:auto;margin-left:auto;padding:4px 8px;font-size:13px;order:3"><option value="auto">Giao diện: theo máy</option><option value="light">Sáng</option><option value="dark">Tối</option></select><span>Tính bank khách · thanh toán đại lý · tra mã T11 — chạy được không cần mạng</span></div>
   <nav role="tablist">
     <button role="tab" data-tab="lo" aria-selected="false" id="t-lo">Nhận lô</button>
-    <button role="tab" data-tab="loc" aria-selected="false" id="t-loc">Lọc đơn</button>
     <button role="tab" data-tab="bank" aria-selected="true" id="t-bank">Bank khách</button>
-    <button role="tab" data-tab="dl" aria-selected="false" id="t-dl">Thanh toán đại lý</button>
+    <button role="tab" data-tab="dl" aria-selected="false" id="t-dl">Đại lý</button>
+    <button role="tab" data-tab="loc" aria-selected="false" id="t-loc">Lọc đơn</button>
+    <button role="tab" data-tab="no" aria-selected="false" id="t-no">Công nợ</button>
+    <button id="t-more" aria-expanded="false">Khác ▾</button>
+  </nav>
+  <nav id="nav2" hidden>
     <button role="tab" data-tab="chk" aria-selected="false" id="t-chk">Check cước</button>
     <button role="tab" data-tab="tra" aria-selected="false" id="t-tra">Tra mã sổ tháng</button>
     <button role="tab" data-tab="cai" aria-selected="false" id="t-cai">Cài đặt</button>
@@ -109,7 +114,8 @@ details summary{cursor:pointer;font-weight:600}
     </div>
     <p class="hint" id="l-chknote"></p>
     <div class="stats" id="l-stats"></div>
-    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi (100 dòng)</button><button class="btn ghost" id="l-sub">Gửi sheet đại lý con</button><button class="btn ghost" id="l-subimg">Ảnh gửi nhóm</button><button class="btn ghost" id="l-zmsg">Gửi Zalo (100 dòng)</button><button class="btn ghost" id="l-zxl">Gửi Excel Zalo</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
+    <div class="btns"><button class="btn" id="l-done">Xong lô: ghi sổ + Excel + gửi Zalo</button></div>
+    <div class="btns"><button class="btn ghost" id="l-xl">Tải Excel</button><button class="btn ghost" id="l-ins">Ghi vào sổ tháng</button><button class="btn ghost" id="l-msg">Copy tin gửi đại lý</button><button class="btn ghost" id="l-sub">Gửi sheet đại lý con</button><button class="btn ghost" id="l-subimg">Ảnh gửi nhóm</button><button class="btn ghost" id="l-zmsg">Gửi Zalo đại lý</button><button class="btn ghost" id="l-zxl">Gửi Excel Zalo</button><button class="btn ghost" id="l-copy">Copy mã</button><button class="btn ghost" id="l-copyall">Copy mã + tiền + tên</button></div>
     <div class="tbl"><table id="l-tbl"></table></div>
     <div id="l-group" class="hint"></div>
   </div>
@@ -121,6 +127,31 @@ details summary{cursor:pointer;font-weight:600}
       <label>%<input id="l-rate" inputmode="decimal"></label>
     </div>
     <div class="btns"><button class="btn" id="l-tobank">Chuyển sang Bank khách</button><button class="btn ghost" id="l-t11">Copy dòng ghi sổ (mã · tên · %)</button></div>
+  </div>
+</section>
+
+<!-- CÔNG NỢ -->
+<section class="tab" id="tab-no" hidden>
+  <div class="card">
+    <h2>Công nợ khách</h2>
+    <p class="hint" id="n-info">Lưu trong tab "Cong no" của sổ tháng đang chọn. Bank ghi sổ tự cộng vào; anh ghi thêm tiền đã ứng, đã chuyển, trừ lại.</p>
+    <div class="btns"><button class="btn ghost" id="n-load">Tải công nợ</button></div>
+    <div class="tbl"><table id="n-sum"></table></div>
+  </div>
+  <div class="card">
+    <h2>Ghi khoản mới</h2>
+    <div class="row">
+      <label>Khách<input id="n-name" list="dl-khach" autocomplete="off"></label>
+      <label>Loại<select id="n-type"><option>Đã chuyển</option><option>Đã ứng</option><option>Trừ lại</option><option>Bank</option><option>Khác (+)</option></select></label>
+      <label>Số tiền<input id="n-amt" inputmode="numeric"></label>
+    </div>
+    <label>Ghi chú<input id="n-note"></label>
+    <div class="btns"><button class="btn" id="n-add">Ghi</button></div>
+    <p class="hint" id="n-msg"></p>
+  </div>
+  <div class="card">
+    <h2 id="n-h">Chi tiết</h2>
+    <div class="tbl"><table id="n-tbl"></table></div>
   </div>
 </section>
 
@@ -162,6 +193,15 @@ details summary{cursor:pointer;font-weight:600}
 <!-- BANK KHÁCH -->
 <section class="tab" id="tab-bank">
   <div class="card">
+    <h2>Lấy từ sổ tháng</h2>
+    <div class="row">
+      <label>Khách (tên ở cột D)<input id="bs-name" list="dl-khach" autocomplete="off" placeholder="vd HT, PHUC"></label>
+      <label>Lô (không bắt buộc)<input id="bs-lot" placeholder="vd HUY 20.11.26"></label>
+    </div>
+    <div class="btns"><button class="btn" id="bs-load">Lấy mã chưa tính bank</button><button class="btn ghost" id="bs-check">Check cước các mã này</button><button class="btn ghost" id="bs-settle">Gửi Zalo &amp; ghi sổ</button></div>
+    <p class="hint" id="bs-note">App lấy các mã có tên khách ở cột D mà chưa có % ở cột E. Check cước để bỏ mã khách chưa đóng. "Gửi Zalo &amp; ghi sổ" ghi cột E, công thức G, tô xanh và cộng vào Công nợ.</p>
+  </div>
+  <div class="card">
     <h2>Mã khách làm</h2>
     <div class="row">
       <label>Khách<input id="b-name" list="dl-khach" autocomplete="off"></label>
@@ -196,6 +236,13 @@ details summary{cursor:pointer;font-weight:600}
 
 <!-- ĐẠI LÝ -->
 <section class="tab" id="tab-dl" hidden>
+  <div class="card">
+    <h2>Lấy lô từ sổ tháng</h2>
+    <div class="row"><label>Tên lô ở cột A<input id="ds-lot" placeholder="vd HUY 20.11.26"></label></div>
+    <div class="chips" id="ds-lots"></div>
+    <div class="btns"><button class="btn" id="ds-load">Lấy lô từ sổ</button><button class="btn ghost" id="ds-list">Xem các lô trong sổ</button></div>
+    <p class="hint" id="ds-note">App lấy mọi mã của lô, tự bỏ mã "Trả ĐL", tự chọn bậc phí theo đại lý.</p>
+  </div>
   <div class="card">
     <h2>Lô của đại lý</h2>
     <div class="row">
@@ -294,6 +341,12 @@ function doPost(e) {
     if (b.action === &#x27;insert&#x27;) return out_(insert_(b.rows || []));
     if (b.action === &#x27;stock&#x27;) return out_(stock_());
     if (b.action === &#x27;assign&#x27;) return out_(assign_(b.codes || [], b.name || &#x27;&#x27;));
+    if (b.action === &#x27;byname&#x27;) return out_(byname_(b.name, b.lot));
+    if (b.action === &#x27;lots&#x27;) return out_(lots_());
+    if (b.action === &#x27;lot&#x27;) return out_(lot_(b.lot));
+    if (b.action === &#x27;settle&#x27;) return out_(settle_(b.name, b.rows || []));
+    if (b.action === &#x27;ledger&#x27;) return out_(ledger_());
+    if (b.action === &#x27;ledgerAdd&#x27;) return out_(ledgerAdd_(b.rows || []));
     return out_({ ok: false, err: &#x27;Không rõ lệnh&#x27; });
   } catch (err) { return out_({ ok: false, err: String(err.message || err) }); }
 }
@@ -372,6 +425,43 @@ function assign_(codes, name) {
     return { ok: true, name: book_().getName(), done: done.length, taken: taken, missing: Object.keys(want) };
   } finally { lock.releaseLock(); }
 }
+
+const strip_ = s =&gt; String(s || &#x27;&#x27;).normalize(&#x27;NFD&#x27;).replace(/[̀-ͯ]/g, &#x27;&#x27;).replace(/đ/g, &#x27;d&#x27;).replace(/Đ/g, &#x27;D&#x27;).replace(/\s+/g, &#x27;&#x27;).toUpperCase();
+// Mã của một khách chưa tính bank (cột D = tên, cột E trống)
+function byname_(name, lot) {
+  name = strip_(name); lot = String(lot || &#x27;&#x27;).trim().toUpperCase();
+  const s = sheet_(), last = s.getLastRow(), v = s.getRange(1, 1, last, 5).getValues(), rows = [];
+  v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!/^[A-Z]{2}\d{8,}/.test(c)) return; if (strip_(r[3]) !== name) return; if (String(r[4]).trim() !== &#x27;&#x27;) return; if (lot &amp;&amp; String(r[0]).trim().toUpperCase() !== lot) return; rows.push([i + 1, String(r[0]), c, +r[2] || 0]); });
+  return { ok: true, name: book_().getName(), rows: rows };
+}
+function lots_() {
+  const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 2).getValues(), o = {};
+  v.forEach(r =&gt; { const a = String(r[0]).trim(); if (a &amp;&amp; /^[A-Z]{2}\d/.test(String(r[1]))) o[a] = (o[a] || 0) + 1; });
+  return { ok: true, name: book_().getName(), lots: Object.keys(o).map(k =&gt; [k, o[k]]) };
+}
+function lot_(lot) {
+  lot = String(lot || &#x27;&#x27;).trim().toUpperCase();
+  const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 4).getValues(), rows = [];
+  v.forEach((r, i) =&gt; { if (String(r[0]).trim().toUpperCase() === lot &amp;&amp; /^[A-Z]{2}\d/.test(String(r[1]))) rows.push([i + 1, String(r[1]).trim().toUpperCase(), +r[2] || 0, String(r[3])]); });
+  return { ok: true, name: book_().getName(), rows: rows };
+}
+// Ghi bank: D tên, E %, G công thức, tô xanh A–D
+function settle_(name, rows) {
+  name = strip_(name); const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 4).getValues(), want = {}, taken = []; let done = 0;
+    rows.forEach(r =&gt; want[String(r[0]).toUpperCase()] = +r[1]);
+    v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!(c in want)) return; const d = String(r[3]).trim();
+      if (d &amp;&amp; strip_(d) !== name) { taken.push([c, d]); delete want[c]; return; }
+      const n = i + 1; s.getRange(n, 4, 1, 2).setValues([[name, want[c]]]); s.getRange(n, 5).setNumberFormat(&#x27;0.0%&#x27;);
+      s.getRange(n, 7).setFormula(&#x27;=C&#x27; + n + &#x27;*(E&#x27; + n + &#x27;-F&#x27; + n + &#x27;)&#x27;).setNumberFormat(&#x27;#,##0&#x27;); s.getRange(n, 1, 1, 4).setBackground(&#x27;#c6efce&#x27;);
+      done++; delete want[c]; });
+    return { ok: true, name: book_().getName(), done: done, taken: taken, missing: Object.keys(want) };
+  } finally { lock.releaseLock(); }
+}
+function ledgerSheet_() { const b = book_(); let s = b.getSheetByName(&#x27;Cong no&#x27;); if (!s) { s = b.insertSheet(&#x27;Cong no&#x27;); s.appendRow([&#x27;Ngày&#x27;, &#x27;Khách&#x27;, &#x27;Loại&#x27;, &#x27;Số tiền&#x27;, &#x27;Ghi chú&#x27;]); } return s; }
+function ledger_() { const s = ledgerSheet_(), n = s.getLastRow(); return { ok: true, name: book_().getName(), rows: n &gt; 1 ? s.getRange(2, 1, n - 1, 5).getValues().map(r =&gt; r.map(x =&gt; x instanceof Date ? x.toLocaleDateString(&#x27;vi-VN&#x27;) : x)) : [] }; }
+function ledgerAdd_(rows) { const s = ledgerSheet_(); rows.forEach(r =&gt; s.appendRow(r)); return { ok: true }; }
 </pre>
   </div>
   <div class="card">
@@ -920,20 +1010,19 @@ $('l-in').addEventListener('input',()=>{window._chk={};});
 window.__sdsServers=list=>{const s=$('l-sv'),cur=store.get('lo_draft',{}).sv||'';s.innerHTML=(list&&list.length?list:[{v:'',t:'Mặc định'}]).map(o=>`<option value="${esc(o.v)}">${esc(o.t)}</option>`).join('');if([...s.options].some(o=>o.value===cur))s.value=cur;$('l-chknote').textContent=list&&list.length?`Có ${list.length} server. Server lỗi thì app tự đổi sang server khác.`:'Chưa lấy được danh sách server — mở tab Check cước của app, đăng nhập otpsms.'};
 $('l-svload').onclick=()=>{if(HAS_NATIVE)Native.askServers();else $('l-chknote').textContent='Chọn server chỉ có trong app Android. Bản web: dùng Trạm check trên otpsms (tab Check cước).'};
 window.__sdsProgress=t=>{$('l-chknote').textContent=t};
-window.__sdsDone=async R=>{$('l-check').disabled=false;const m={};(R.rows||[]).forEach(r=>m[r.code]=r);window._chk=m;
+window.__sdsDone=async R=>{if(window.__sdsTarget==='bank'){window.__sdsTarget='';bankChkDone(R);return}$('l-check').disabled=false;const m={};(R.rows||[]).forEach(r=>m[r.code]=r);window._chk=m;
   $('l-chknote').textContent=R.stop?R.stop:`Check xong ${R.rows.length} mã.`;
   try{if(BR.url){const j=await api({action:'check',codes:R.rows.map(r=>r.code)});const d={};Object.entries(j.found||{}).forEach(([c,a])=>{d[c]={row:a[0].row,amount:a[0].amount,d:a[0].d,lot:''}});window._dup=d;$('l-chknote').textContent+=' Đã dò trùng với sổ tháng.'}}catch(e){$('l-chknote').textContent+=' (Chưa dò trùng được với sổ: '+e.message+')'}
   renderLo()};
 $('l-check').onclick=()=>{const codes=(window._lo||[]).map(r=>r.code);if(!codes.length){toast('Chưa có mã');return}
   if(!HAS_NATIVE){copyText(codes.join('\n'),$('l-tbl'));$('l-chknote').textContent='Bản web không check thẳng được (trình duyệt chặn). Đã copy mã — mở otpsms, bấm Trạm check SĐS rồi dán. Check thẳng trong app chỉ có ở bản Android.';return}
-  window._chk={};$('l-check').disabled=true;$('l-chknote').textContent='Đang gửi sang otpsms…';clearTimeout(window._wd);window._wd=setTimeout(()=>{if($('l-check').disabled){$('l-check').disabled=false;$('l-chknote').textContent='Không nhận được kết quả từ otpsms. Mở nút Check cước ở dưới xem đã đăng nhập chưa, rồi bấm Check cước lại.'}},180000);Native.check(JSON.stringify(codes),$('l-sv').value||'')};
+  window.__sdsTarget='lo';window._chk={};$('l-check').disabled=true;$('l-chknote').textContent='Đang gửi sang otpsms…';clearTimeout(window._wd);window._wd=setTimeout(()=>{if($('l-check').disabled){$('l-check').disabled=false;$('l-chknote').textContent='Không nhận được kết quả từ otpsms. Mở nút Check cước ở dưới xem đã đăng nhập chưa, rồi bấm Check cước lại.'}},180000);Native.check(JSON.stringify(codes),$('l-sv').value||'')};
 function loChunks(){const P=loParts();const by=a=>a.slice().sort((x,y)=>x.stt-y.stt);
   const L=P.ok.map(r=>`${r.stt}\t${r.code}\t${Calc.dots(r.c.rem)}`)
     .concat(by(P.dup).map(r=>`${r.stt}\t${r.code}\t${Calc.dots(r.c.rem)} (trùng sổ, không tính)`))
     .concat(by(P.zero).map(r=>`${r.stt}\t${r.code}\t0đ (đã thanh toán)`))
     .concat(by(P.err).map(r=>`${r.stt}\t${r.code}\tlỗi check`));
-  const sum=P.ok.reduce((t,r)=>t+r.c.rem,0),ch=[];for(let i=0;i<L.length;i+=100)ch.push(L.slice(i,i+100));
-  if(ch.length)ch[ch.length-1].push(`\t\t${Calc.dots(sum)}`);return{ch:ch.map(c=>c.join('\n')),n:P.ok.length}}
+  const sum=P.ok.reduce((t,r)=>t+r.c.rem,0);L.push(`\t\t${Calc.dots(sum)}`);return{ch:[L.join('\n')],n:P.ok.length}}
 function loParts(){const L=window._lo||[];return{ok:L.filter(r=>r.k==='ok'&&!r.n).sort((a,b)=>a.c.rem-b.c.rem||a.code.localeCompare(b.code)),dup:L.filter(r=>r.k==='ok'&&r.n),zero:L.filter(r=>r.k==='zero'),err:L.filter(r=>r.k==='err'||!r.c)}}
 $('l-xl').onclick=()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast('Check cước trước đã');return}
   const rows=[[{v:'STT',s:1},{v:'Mã hóa đơn',s:1},{v:'Tổng tiền',s:1},{v:'Khách làm',s:1}]];let i=0,sum=0;
@@ -954,7 +1043,7 @@ $('l-ins').onclick=async()=>{const P=loParts();if(!P.ok.length){toast('Không c�
   catch(e){$('l-chknote').textContent='Không ghi được: '+e.message}};
 let msgIdx=0;
 $('l-msg').onclick=()=>{const {ch,n}=loChunks();if(!n){toast('Check cước trước đã');return}
-  const k=msgIdx%ch.length;msgIdx++;copyText(ch[k],$('l-tbl'));$('l-chknote').textContent=`Đã copy phần ${k+1}/${ch.length}. Bấm lại để copy phần tiếp.`};
+  copyText(ch[0],$('l-tbl'));$('l-chknote').textContent=`Đã copy ${n} mã (STT · mã · tiền).`};
 ['l-day','l-tier','l-sv'].forEach(id=>$(id).addEventListener('input',renderLo));
 
 
@@ -963,7 +1052,7 @@ async function readClip(){if(window.Native&&Native.paste)return Native.paste();i
 function loReset(){window._chk={};window._dup={};msgIdx=0;zIdx=0;$('l-chknote').textContent='';delete $('l-in').dataset.sample}
 $('l-paste').onclick=async()=>{$('l-in').value='';loReset();try{const t=await readClip();if(!t||!t.trim())throw new Error('empty');$('l-in').value=t;renderLo();toast('Đã dán lô mới')}catch(e){renderLo();$('l-in').focus();toast('Đã xóa — nhấn giữ trong ô rồi chọn Dán')}};
 $('l-clear').onclick=()=>{$('l-in').value='';loReset();renderLo();$('l-in').focus()};
-$('l-zmsg').onclick=()=>{const {ch,n}=loChunks();if(!n){toast('Check cước trước đã');return}const k=zIdx%ch.length;zIdx++;zaloText(ch[k]);$('l-chknote').textContent=`Đã mở Zalo với phần ${k+1}/${ch.length}. Bấm lại để gửi phần tiếp.`};
+$('l-zmsg').onclick=()=>{const {ch,n}=loChunks();if(!n){toast('Check cước trước đã');return}zaloText(ch[0]);$('l-chknote').textContent=`Đã mở Zalo với ${n} mã.`};
 $('l-zxl').onclick=async()=>{const P=loParts();if(!P.ok.length&&!P.zero.length){toast('Check cước trước đã');return}window.__xlZalo=true;$('l-xl').click()};
 $('f-zalo').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}const s=PICK.reduce((t,r)=>t+r.amount,0);zaloText(PICK.map(r=>r.code+'\t'+Calc.dots(r.amount)).join('\n')+'\nTổng\t'+Calc.dots(s))};
 
@@ -1053,9 +1142,99 @@ function applyTheme(v){const r=document.documentElement;
   else delete r.dataset.theme}
 $('theme').value=store.get('theme','auto');applyTheme($('theme').value);
 $('theme').onchange=()=>{store.set('theme',$('theme').value);applyTheme($('theme').value)};
+/* ===== Sổ tháng: thêm lệnh cho bank, đại lý, công nợ ===== */
+const isTraDL=d=>/tr[aả]\s*đ?d?\s*l/i.test(String(d||''));
+async function gReadE(id,m){const [v,f]=await Promise.all([gVals(id,m,'A1:E'),gVals(id,m,'G1:G','FORMULA')]);return{v,f}}
+const LEDGER='Cong no';
+async function gLedgerTab(id){const j=await gfetch('GET',SH+id+'?fields=properties.title,sheets.properties(sheetId,title)');let s=j.sheets.find(x=>x.properties.title===LEDGER);
+  if(!s){const r=await gfetch('POST',SH+id+':batchUpdate',{requests:[{addSheet:{properties:{title:LEDGER}}}]});
+    await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:[{range:`'${LEDGER}'!A1:E1`,values:[['Ngày','Khách','Loại','Số tiền','Ghi chú']]}]})}
+  return{name:j.properties.title}}
+Object.assign(GS,{
+  async byname(id,b){const name=Calc.strip(b.name),lot=String(b.lot||'').trim().toUpperCase();const m=await gMeta(id),{v}=await gReadE(id,m),rows=[];
+    v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!/^[A-Z]{2}\d{8,}/.test(c))return;if(Calc.strip(r[3])!==name)return;if(String(r[4]||'').trim()!=='')return;if(lot&&String(r[0]||'').trim().toUpperCase()!==lot)return;rows.push([i+1,String(r[0]||''),c,+r[2]||0])});
+    return{ok:true,name:m.name,rows}},
+  async lots(id){const m=await gMeta(id),v=await gVals(id,m,'A1:B'),o={};v.forEach(r=>{const a=String(r[0]||'').trim(),c=String(r[1]||'');if(a&&/^[A-Z]{2}\d/.test(c))o[a]=(o[a]||0)+1});return{ok:true,name:m.name,lots:Object.entries(o)}},
+  async lot(id,b){const lot=String(b.lot||'').trim().toUpperCase();const m=await gMeta(id),v=await gVals(id,m,'A1:D'),rows=[];
+    v.forEach((r,i)=>{if(String(r[0]||'').trim().toUpperCase()===lot&&/^[A-Z]{2}\d/.test(String(r[1]||'')))rows.push([i+1,String(r[1]).trim().toUpperCase(),+r[2]||0,String(r[3]||'')])});return{ok:true,name:m.name,rows}},
+  async settle(id,b){const name=Calc.strip(b.name);const m=await gMeta(id),{v}=await gReadE(id,m),want={};(b.rows||[]).forEach(r=>want[String(r[0]).toUpperCase()]=+r[1]);
+    const data=[],rowsIdx=[],taken=[];
+    v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!(c in want))return;const d=String(r[3]||'').trim();if(d&&Calc.strip(d)!==name){taken.push([c,d]);delete want[c];return}
+      const n=i+1;data.push({range:`'${m.tab}'!D${n}:E${n}`,values:[[name,want[c]]]},{range:`'${m.tab}'!G${n}`,values:[[`=C${n}*(E${n}-F${n})`]]});rowsIdx.push(i);delete want[c]});
+    if(data.length){
+      await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:data.filter(d=>d.values[0].length===2)});
+      await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'USER_ENTERED',data:data.filter(d=>d.values[0].length===1)});
+      const reqs=[];rowsIdx.forEach(i=>{reqs.push({repeatCell:{range:{sheetId:m.sid,startRowIndex:i,endRowIndex:i+1,startColumnIndex:0,endColumnIndex:4},cell:{userEnteredFormat:{backgroundColor:{red:.776,green:.937,blue:.808}}},fields:'userEnteredFormat.backgroundColor'}},
+        {repeatCell:{range:{sheetId:m.sid,startRowIndex:i,endRowIndex:i+1,startColumnIndex:4,endColumnIndex:5},cell:{userEnteredFormat:{numberFormat:{type:'PERCENT',pattern:'0.0%'}}},fields:'userEnteredFormat.numberFormat'}},
+        {repeatCell:{range:{sheetId:m.sid,startRowIndex:i,endRowIndex:i+1,startColumnIndex:6,endColumnIndex:7},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0'}}},fields:'userEnteredFormat.numberFormat'}})});
+      await gfetch('POST',SH+id+':batchUpdate',{requests:reqs})}
+    return{ok:true,name:m.name,done:rowsIdx.length,taken,missing:Object.keys(want)}},
+  async ledger(id){const t=await gLedgerTab(id);const j=await gfetch('GET',SH+id+'/values/'+encodeURIComponent(`'${LEDGER}'!A2:E`)+'?valueRenderOption=UNFORMATTED_VALUE');return{ok:true,name:t.name,rows:j.values||[]}},
+  async ledgerAdd(id,b){await gLedgerTab(id);await gfetch('POST',SH+id+'/values/'+encodeURIComponent(`'${LEDGER}'!A:E`)+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{values:b.rows});return{ok:true}}
+});
+/* ===== Bank từ sổ ===== */
+let BS=null;
+$('bs-name').addEventListener('change',()=>{const k=Calc.strip($('bs-name').value);if(KH[k]!=null)$('b-rate').value=String(KH[k]).replace('.',',')});
+$('bs-load').onclick=async()=>{const name=Calc.strip($('bs-name').value);if(!name){toast('Nhập tên khách');return}$('bs-note').textContent='Đang lấy từ sổ…';
+  try{const j=await api({action:'byname',name,lot:$('bs-lot').value});BS={name,rows:j.rows};
+    if(!j.rows.length){$('bs-note').textContent=`Không có mã nào của ${name} chưa tính bank trong "${j.name}".`;return}
+    $('b-name').value=name;if(KH[name]!=null&&!$('b-rate').value)$('b-rate').value=String(KH[name]).replace('.',',');
+    $('b-in').value=j.rows.sort((a,b)=>a[3]-b[3]).map(r=>r[2]+' '+Calc.dots(r[3])).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';renderBank();
+    const lots=[...new Set(j.rows.map(r=>r[1]))];$('bs-note').textContent=`Lấy ${j.rows.length} mã của ${name} (${lots.join(', ')}). Kiểm % rồi bấm Check cước hoặc Gửi Zalo & ghi sổ. Mã có % riêng thì thêm % cuối dòng.`}
+  catch(e){$('bs-note').textContent='Không lấy được: '+e.message}};
+$('bs-check').onclick=()=>{const codes=(window._bank?.rows||[]).map(r=>r.code);if(!codes.length){toast('Chưa có mã');return}
+  if(!HAS_NATIVE){$('bs-note').textContent='Check cước thẳng chỉ có trên app Android. Bản web: dùng Trạm check rồi bỏ tay các mã còn cước.';return}
+  window.__sdsTarget='bank';$('bs-note').textContent='Đang check cước…';Native.check(JSON.stringify(codes),$('l-sv').value||'')};
+window.bankChkDone=R=>{const bad=(R.rows||[]).filter(r=>!(r.rem===0&&!/lỗi|error/i.test(r.st)));const badSet=new Set(bad.map(r=>r.code));
+  if(R.stop&&!R.rows.length){$('bs-note').textContent=R.stop;return}
+  const keep=$('b-in').value.split('\n').filter(l=>{const m=l.toUpperCase().match(/[A-Z]{2}\d{8,14}/);return!m||!badSet.has(m[0])});$('b-in').value=keep.join('\n');renderBank();
+  $('bs-note').textContent=bad.length?`Đã bỏ ${bad.length} mã khách chưa đóng hoặc lỗi: ${bad.map(r=>r.code.slice(-5)+(r.rem?' còn '+Calc.dots(r.rem):' lỗi')).join(', ')}.`:'Tất cả mã đã đóng xong (0đ). Bấm Gửi Zalo & ghi sổ.'};
+let bsArm=0;
+$('bs-settle').onclick=async()=>{const res=window._bank,name=Calc.strip($('b-name').value);if(!res||!res.rows.length||!name){toast('Chưa có bank để ghi');return}
+  if(res.rows.some(r=>!r.rate)){toast('Có mã chưa có %');return}
+  if(!bsArm){bsArm=1;setTimeout(()=>bsArm=0,15000);$('bs-note').textContent=`Sẽ mở Zalo gửi bank ${res.rows.length} đơn cho ${name}, ghi cột E/G + tô xanh trong sổ và cộng ${Calc.dots(res.net-Calc.num($('b-tru').value))} vào công nợ. Bấm lần nữa để xác nhận.`;return}
+  bsArm=0;$('bs-note').textContent='Đang ghi sổ…';
+  try{const j=await api({action:'settle',name,rows:res.rows.map(r=>[r.code,Math.round(r.rate*1000)/100000])});
+    const today=new Date().toLocaleDateString('vi-VN'),L=[[today,name,'Bank',res.net-Calc.num($('b-tru').value),`${res.rows.length} đơn · tổng ${Calc.dots(res.total)}`]];
+    if(Calc.num($('b-ung').value))L.push([today,name,'Đã ứng',-Calc.num($('b-ung').value),'ghi kèm bank']);
+    try{await api({action:'ledgerAdd',rows:L})}catch(e){}
+    $('bs-note').textContent=`Đã ghi ${j.done} mã trong "${j.name}"`+(j.taken.length?`; ${j.taken.length} mã đã có người khác: ${j.taken.map(x=>x[0].slice(-5)+' ('+x[1]+')').join(', ')}`:'')+(j.missing.length?`; ${j.missing.length} mã không thấy trong sổ`:'')+'. Đã cộng công nợ.';
+    zaloText($('b-msg').textContent)}catch(e){$('bs-note').textContent='Không ghi được: '+e.message}};
+/* ===== Đại lý từ sổ ===== */
+$('ds-list').onclick=async()=>{$('ds-note').textContent='Đang tải các lô…';try{const j=await api({action:'lots'});const L=j.lots.slice(-30).reverse();$('ds-lots').innerHTML=L.map(([a,n])=>`<button data-l="${esc(a)}">${esc(a)} · ${n}</button>`).join('');$('ds-note').textContent=`${j.lots.length} lô trong "${j.name}" (hiện 30 lô mới nhất). Bấm lô để lấy.`}catch(e){$('ds-note').textContent='Không tải được: '+e.message}};
+$('ds-lots').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('ds-lot').value=b.dataset.l;$('ds-load').click()};
+$('ds-load').onclick=async()=>{const lot=$('ds-lot').value.trim();if(!lot){toast('Nhập tên lô');return}$('ds-note').textContent='Đang lấy lô…';
+  try{const j=await api({action:'lot',lot});if(!j.rows.length){$('ds-note').textContent=`Không thấy lô "${lot}" trong "${j.name}".`;return}
+    const tra=j.rows.filter(r=>isTraDL(r[3])),ok=j.rows.filter(r=>!isTraDL(r[3])&&r[2]>0);
+    const parts=lot.trim().split(/\s+/),ag=Calc.strip(parts[0]);$('d-name').value=ag;$('d-lot').value=parts.slice(1).join(' ');if(DL[ag])$('d-tier').value=String(DL[ag]);
+    $('d-in').value=ok.map(r=>r[1]+' '+Calc.dots(r[2])).join('\n');delete $('d-in').dataset.sample;$('d-tru').value='';renderDL();
+    $('ds-note').textContent=`Lấy ${ok.length} mã của lô ${lot}`+(tra.length?`, bỏ ${tra.length} mã Trả ĐL: ${tra.map(r=>r[1].slice(-5)).join(', ')}`:'')+'.'}
+  catch(e){$('ds-note').textContent='Không lấy được: '+e.message}};
+/* ===== Công nợ ===== */
+let NO=[],NOsel='';
+function renderNo(){const by={};NO.forEach(r=>{const k=Calc.strip(r[1]);if(!k)return;by[k]=(by[k]||0)+(+r[3]||0)});
+  const ks=Object.keys(by).sort((a,b)=>Math.abs(by[b])-Math.abs(by[a]));
+  $('n-sum').innerHTML='<tr><th>Khách</th><th style="text-align:right">Còn phải chuyển</th></tr>'+(ks.length?ks.map(k=>`<tr data-k="${esc(k)}" style="cursor:pointer"><td>${esc(k)}</td><td class="n" style="color:${by[k]>0?'var(--warn)':'inherit'}">${Calc.dots(by[k])}</td></tr>`).join(''):'<tr><td colspan="2" class="hint">Chưa có khoản nào.</td></tr>');
+  const L=NO.filter(r=>!NOsel||Calc.strip(r[1])===NOsel);$('n-h').textContent=NOsel?`Chi tiết ${NOsel}`:'Chi tiết (bấm tên khách để lọc)';
+  $('n-tbl').innerHTML='<tr><th>Ngày</th><th>Khách</th><th>Loại</th><th style="text-align:right">Số tiền</th><th>Ghi chú</th></tr>'+L.slice(-200).reverse().map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td class="n">${Calc.dots(+r[3]||0)}</td><td>${esc(r[4]||'')}</td></tr>`).join('')}
+$('n-sum').onclick=e=>{const tr=e.target.closest('tr[data-k]');if(!tr)return;NOsel=NOsel===tr.dataset.k?'':tr.dataset.k;$('n-name').value=NOsel;renderNo()};
+$('n-load').onclick=async()=>{$('n-info').textContent='Đang tải…';try{const j=await api({action:'ledger'});NO=j.rows;$('n-info').textContent=`Công nợ trong "${j.name}", tab "Cong no". Số dương = anh còn phải chuyển cho khách.`;renderNo()}catch(e){$('n-info').textContent='Không tải được: '+e.message}};
+$('n-add').onclick=async()=>{const name=Calc.strip($('n-name').value),amt=Calc.num($('n-amt').value),t=$('n-type').value;if(!name||!amt){toast('Nhập khách và số tiền');return}
+  const sign=(t==='Bank'||t==='Khác (+)')?1:-1,row=[new Date().toLocaleDateString('vi-VN'),name,t,sign*amt,$('n-note').value.trim()];
+  try{await api({action:'ledgerAdd',rows:[row]});NO.push(row);renderNo();$('n-amt').value='';$('n-note').value='';$('n-msg').textContent=`Đã ghi ${t} ${Calc.dots(amt)} cho ${name}.`}catch(e){$('n-msg').textContent='Không ghi được: '+e.message}};
+/* ===== Xong lô ===== */
+let doneArm=0;
+$('l-done').onclick=async()=>{const P=loParts();if(!P.ok.length){toast('Check cước trước đã');return}
+  if(!doneArm){doneArm=1;setTimeout(()=>doneArm=0,15000);$('l-chknote').textContent=`Xong lô "${loName()}": ghi ${P.ok.length} mã vào sổ, lưu Excel, rồi mở Zalo gửi danh sách STT · mã · tiền. Bấm lần nữa để xác nhận.`;return}
+  doneArm=0;let msg='';
+  try{const j=await api({action:'insert',rows:P.ok.map(r=>[loName(),r.code,r.c.rem,Calc.tierRate(r.c.rem,loTier())/100])});msg=`Đã ghi ${j.added} mã vào sổ${j.skipped?`, bỏ ${j.skipped} mã đã có`:''}. `}catch(e){msg=`Chưa ghi sổ được (${e.message}). `}
+  try{$('l-xl').click();msg+='Đã lưu Excel. '}catch(e){}
+  $('l-chknote').textContent=msg+'Đang mở Zalo…';zaloText(loChunks().ch[0])};
+
 /* ===== Tabs + khởi động ===== */
-function show(t){document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));document.querySelectorAll('section.tab').forEach(s=>s.hidden=s.id!=='tab-'+t);store.set('tab',t)}
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.tab));
+function show(t){document.querySelectorAll('nav button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));if(['chk','tra','cai'].includes(t)){$('nav2').hidden=false;$('t-more').setAttribute('aria-expanded','true')}document.querySelectorAll('section.tab').forEach(s=>s.hidden=s.id!=='tab-'+t);store.set('tab',t)}
+document.querySelectorAll('nav button[data-tab]').forEach(b=>b.onclick=()=>show(b.dataset.tab));
+$('t-more').onclick=()=>{const o=$('nav2').hidden;$('nav2').hidden=!o;$('t-more').setAttribute('aria-expanded',String(o))};
 
 const bd=store.get('bank_draft',null);
 if(bd&&bd.i){$('b-name').value=bd.n||'';$('b-rate').value=bd.r||'';$('b-in').value=bd.i;$('b-ung').value=bd.u||'';$('b-tru').value=bd.t||''}
