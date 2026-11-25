@@ -12,7 +12,7 @@ box.innerHTML='<div style="display:flex;justify-content:space-between;align-item
 (tb?'':'<p style="color:#b42318">Chưa ở trang Điện của otpsms hoặc chưa đăng nhập. Anh mở trang Điện, đăng nhập, rồi bấm lại nút.</p>')+
 '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><label style="flex:1 1 120px">Đại lý<input data-dl style="'+inp+'" placeholder="TUNG"></label><label style="flex:1 1 120px">Ngày<input data-day style="'+inp+'" value="'+dstr+'"></label><label style="flex:1 1 140px">Server<select data-sv style="'+inp+'"></select></label><label style="flex:1 1 160px">Bậc phí (cột F)<select data-tier style="'+inp+'"><option value="auto">Tự theo đại lý</option><option value="3">Bậc 3</option><option value="2">Bậc 2</option></select></label></div>'+
 '<textarea data-in placeholder="Dán nguyên tin đại lý gửi (5 số cuối hoặc mã đủ, có =64, kh = … cũng được)" style="'+inp+';min-height:110px;margin-top:8px;font-family:ui-monospace,Consolas,monospace"></textarea>'+
-'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+bt('data-go','1. Check cước',1)+bt('data-xl','2. Tải Excel')+bt('data-t11','3. Ghi vào sổ tháng')+bt('data-msg','Copy tin gửi (100 dòng)')+'</div>'+
+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+bt('data-go','1. Check cước',1)+bt('data-xl','2. Tải Excel')+bt('data-t11','3. Ghi vào sổ tháng')+bt('data-msg','Copy tin gửi đại lý')+'</div>'+
 '<div data-st style="margin-top:8px;color:#5d6b66"></div><div data-sum style="margin-top:4px"></div><div data-out style="margin-top:6px;overflow-x:auto"></div>';
 document.body.appendChild(box);
 var q=function(s){return box.querySelector(s)};
@@ -91,10 +91,11 @@ q('[data-t11]').onclick=async function(){var ok=okRows().filter(function(r){retu
   armed=0;st('Đang ghi vào T11…');
   try{var r=await api({action:'insert',rows:ok.map(function(x){return[lotName(),x.code,x.rem,rateF(x.rem,t)]})});
     st(r.ok?'Đã ghi '+r.added+' mã vào "'+(r.name||'sổ tháng')+'" (dòng '+r.from+'–'+r.to+')'+(r.skipped?', bỏ '+r.skipped+' mã đã có':'')+'. Dòng tổng đã cập nhật.':'Lỗi: '+r.err)}catch(e){st('Không ghi được: '+e.message)}};
-q('[data-msg]').onclick=function(){var ok=okRows().filter(function(r){return!r.t11});if(!ok.length){st('Check cước trước đã.');return}
-  var lines=ok.map(function(r){return r.code+' '+dots(r.rem)}),ch=[];for(var i=0;i<lines.length;i+=100)ch.push(lines.slice(i,i+100).join('\n'));
-  var idx=+(box.dataset.chunk||0)%ch.length,txt=ch[idx];box.dataset.chunk=idx+1;
-  var done=function(){st('Đã copy phần '+(idx+1)+'/'+ch.length+' ('+txt.split('\n').length+' dòng). Bấm lại để copy phần tiếp.')};
+q('[data-msg]').onclick=function(){var ok=okRows().filter(function(r){return!r.t11});if(!res.length){st('Check cước trước đã.');return}
+  res.forEach(function(r,i){r.stt=i+1});var oth=res.filter(function(r){return kind(r)!='ok'||r.t11});
+  var lines=ok.map(function(r){return r.stt+'\t'+r.code+'\t'+dots(r.rem)}).concat(oth.map(function(r){return r.stt+'\t'+r.code+'\t'+(r.t11?dots(r.rem)+' (trùng sổ, không tính)':kind(r)=='zero'?'0đ (đã thanh toán)':'lỗi check')}));
+  lines.push('\t\t'+dots(ok.reduce(function(s,r){return s+r.rem},0)));var txt=lines.join('\n');
+  var done=function(){st('Đã copy '+ok.length+' mã (STT · mã · tiền).')};
   if(window.Native&&Native.copy){Native.copy(txt);done()}else if(navigator.clipboard)navigator.clipboard.writeText(txt).then(done,fb);else fb();
   function fb(){var a=document.createElement('textarea');a.value=txt;box.appendChild(a);a.select();document.execCommand('copy');a.remove();done()}};
 })();

@@ -8,7 +8,7 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
   Lệnh sổ tháng qua `api({action})` (Google Sheets API khi đăng nhập Google, hoặc cầu nối Apps Script): ping, check, stock, assign, insert, byname, lots, lot, settle, ledger, ledgerAdd, push (sheet đại lý con).
   Công nợ lưu ở tab "Cong no" của sổ tháng (Ngày · Khách · Loại · Số tiền · Ghi chú; dương = còn phải chuyển khách).
 - `web/core.js` — `SDSCore`: check cước trên trang otpsms (đợt 23 mã, chọn server, tự đổi server khi lỗi). Chạy **trong trang otpsms** (inject).
-- `web/tram.js` — khung "Trạm check" (bookmarklet / nút Mở Trạm trong APK): check, tải Excel, ghi sổ, copy 100 dòng.
+- `web/tram.js` — khung "Trạm check" (bookmarklet / nút Mở Trạm trong APK): check, tải Excel, ghi sổ, copy tin đại lý (STT · mã · tiền).
 - `web/build.sh` — dựng `tram.min.js`, nhúng bookmarklet + mã cầu nối vào HTML, xuất `app/src/main/assets/{index.html,tram.js,core.js}`.
 - `app/` — vỏ Android (Java, WebView). `MainActivity.java`: 2 WebView (Sổ + otpsms), cầu `Native` (copy, saveFile, shareZalo, shareFile, check, askServers, googleAuth/googleAuthChoose/googleLogout, http).
   Ký bằng `app/sds.keystore` (pass `sodienson`) — **không đổi khóa**, nếu đổi thì anh phải gỡ app mới cài được.
