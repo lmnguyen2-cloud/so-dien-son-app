@@ -15,7 +15,8 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
   Ký bằng `app/sds.keystore` (pass `sodienson`) — **không đổi khóa**, nếu đổi thì anh phải gỡ app mới cài được.
 - `.github/workflows/build.yml` — push lên `main` là GitHub dựng APK debug và tạo Release `build-N` (file `SoDienSon.apk`). Tăng `versionCode/versionName` trong `app/build.gradle` mỗi bản.
 - `apps-script/cau-noi-so-thang.gs` — cầu nối Apps Script (dự phòng cho bản web): ping/check/insert/stock/assign theo link sheet gửi lên.
-- `kho-don/` — trang "Kho đơn" cho đại lý tự lấy đơn bằng PIN (Apps Script web app: `Code.gs` + `Index.html`). Test: `node kho-don/test.js`, `node kho-don/test-ui.js`.
+- `kho-don/` — trang "Kho đơn" cho đại lý tự lấy đơn bằng PIN (Apps Script web app: `Code.gs` + `Index.html`).
+  Đã triển khai 27/11 ở dự án Apps Script "Kho đơn Điện Sơn" (tài khoản lm.nguyen2@gmail.com; sổ T11 của taso.kem99 đang mở quyền sửa theo link): https://script.google.com/macros/s/AKfycbx493omj2WjKgbBqoDZY9snFKDjuiZB2epM4It4zZuHrSVbjWafgc2DSWj3tIa--GVS/exec — mã quản lý chỉ anh giữ, không ghi vào kho mã. Test: `node kho-don/test.js`, `node kho-don/test-ui.js`.
 - `web/tests/` — test Playwright (t8: bank/đại lý/công nợ/xong lô với Sheets giả; t10: nháp cột H) với `window.Native` giả lập (t4 Nhận lô/Lọc, t5 Sheets API giả, t6 sheet đại lý con, t3 Trạm). Cần file CSV sổ tháng: `T11_CSV=... node web/tests/t4.js`.
 
 ## Quy tắc nghiệp vụ (đừng đổi khi chưa hỏi anh)
