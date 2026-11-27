@@ -24,6 +24,12 @@ function book_() {
   return SpreadsheetApp.openById(m[1]);
 }
 function sheet_() { return book_().getSheets()[0]; }
+// % khách theo tab "Bang %" (Thời gian · Khách · Tín dụng % · VTS %) — dòng mới nhất của mỗi khách
+const norm_ = x => String(x || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D').replace(/\s+/g, '');
+function rates_() { const s = book_().getSheetByName('Bang %'), o = {}; if (!s || s.getLastRow() < 2) return o;
+  s.getRange(2, 1, s.getLastRow() - 1, 4).getValues().forEach(r => { const k = norm_(r[1]); if (k) o[k] = { td: r[2] === '' ? null : +r[2], vts: r[3] === '' ? null : +r[3] }; }); return o; }
+const pctTxt_ = n => String(Math.round(n * 100) / 100).replace('.', ',');
+function clearDI_(s, i) { s.getRange(i + 1, 4).setValue(''); s.getRange(i + 1, 9).setValue(''); }
 function readAll_(s) { const last = s.getLastRow(); return last ? s.getRange(1, 1, last, 8).getValues() : []; }
 
 // đơn trong kho: mã PB…, tiền > 0, cột D trống, cột H (nháp) trống
@@ -40,7 +46,7 @@ function expire_(s, v) {
     const x = r[code];
     if (x.s === 'hold' && now - x.t > lim) {
       const i = v.findIndex(row => String(row[1]).trim().toUpperCase() === code);
-      if (i >= 0 && String(v[i][3]).trim().toUpperCase() === x.a) { s.getRange(i + 1, 4).setValue(''); v[i][3] = ''; }
+      if (i >= 0 && String(v[i][3]).trim().toUpperCase() === x.a) { clearDI_(s, i); v[i][3] = ''; }
       delete r[code]; changed = true;
     } else if (x.s === 'done' && now - x.t > 3 * 86400000) { delete r[code]; changed = true; }
   });
@@ -95,7 +101,8 @@ function view_(a, s, v, r) {
   const c = cfg_(), st = stock_(v);
   const bands = [[0, 500000, '≤500K'], [500000, 1000000, '500K–1Tr'], [1000000, 2000000, '1Tr–2Tr'], [2000000, 4000000, '2Tr–4Tr'], [4000000, 1e12, '>4Tr']]
     .map(b => { const x = st.filter(o => o.amount >= b[0] && o.amount < b[1]); return { t: b[2], n: x.length, sum: x.reduce((t, o) => t + o.amount, 0) }; });
-  return { name: a.name || a.d, d: a.d, rate: +a.rate || 0, limit: +a.limit || 0, open: c.open !== false, hold: c.hold || 60,
+  const rt = rates_()[a.d] || {};
+  return { name: a.name || a.d, d: a.d, rate: +a.rate || 0, td: rt.td, vts: rt.vts, limit: +a.limit || 0, open: c.open !== false, hold: c.hold || 60,
     stock: { n: st.length, sum: st.reduce((t, o) => t + o.amount, 0), bands }, mine: mine_(r, a), now: Date.now() };
 }
 function agentInfo(pin) {
@@ -105,7 +112,8 @@ function agentInfo(pin) {
 function agentTake(pin, q) {
   const a = agentByPin_(pin), c = cfg_();
   if (c.open === false) throw new Error('Kho đang tạm đóng, anh/chị liên hệ chủ kho.');
-  const target = Math.round(+q.target || 0), k = Math.round(+q.k || 0), mn = +q.min || 0, mx = +q.max || 0;
+  const target = Math.round(+q.target || 0), k = Math.round(+q.k || 0), mn = +q.min || 0, mx = +q.max || 0, ty = q.ty === 'TD' || q.ty === 'VTS' ? q.ty : '';
+  const rt = rates_()[a.d] || {}, p = ty ? rt[ty.toLowerCase()] : null, itag = p != null ? ty + ' ' + pctTxt_(p) + '%' : (ty || '');
   if (!(target > 0)) throw new Error('Nhập số tiền cần lấy');
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
@@ -116,7 +124,7 @@ function agentTake(pin, q) {
     const pick = pickSet_(pool, target, k);
     if (!pick.length) throw new Error('Kho không còn bộ đơn phù hợp — thử số tiền khác hoặc nới dải tiền.');
     const now = Date.now();
-    pick.forEach(o => { s.getRange(o.row, 4).setValue(a.d); r[o.code] = { a: a.d, t: now, s: 'hold', amount: o.amount, lot: o.lot }; v[o.row - 1][3] = a.d; });
+    pick.forEach(o => { s.getRange(o.row, 4).setValue(a.d); if (itag) s.getRange(o.row, 9).setValue(itag); r[o.code] = { a: a.d, t: now, s: 'hold', amount: o.amount, lot: o.lot, ty: ty, p: p }; v[o.row - 1][3] = a.d; });
     saveRes_(r);
     return Object.assign(view_(a, s, v, r), { picked: pick.map(o => o.code) });
   } finally { lock.releaseLock(); }
@@ -133,7 +141,7 @@ function agentReturn(pin, codes) {
   try { const s = sheet_(), v = readAll_(s), r = expire_(s, v);
     (codes || []).forEach(c => { const x = r[c]; if (!x || x.a !== a.d || x.s !== 'hold') return;
       const i = v.findIndex(row => String(row[1]).trim().toUpperCase() === c);
-      if (i >= 0 && String(v[i][3]).trim().toUpperCase() === a.d) { s.getRange(i + 1, 4).setValue(''); v[i][3] = ''; }
+      if (i >= 0 && String(v[i][3]).trim().toUpperCase() === a.d) { clearDI_(s, i); v[i][3] = ''; }
       delete r[c]; });
     saveRes_(r); return view_(a, s, v, r);
   } finally { lock.releaseLock(); }
@@ -156,7 +164,7 @@ function adminSave(key, c) {
 function adminRelease(key, codes) {
   admin_(key); const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try { const s = sheet_(), v = readAll_(s), r = res_();
-    (codes || []).forEach(c => { const x = r[c]; if (!x) return; if (x.s === 'hold') { const i = v.findIndex(row => String(row[1]).trim().toUpperCase() === c); if (i >= 0 && String(v[i][3]).trim().toUpperCase() === x.a) s.getRange(i + 1, 4).setValue(''); } delete r[c]; });
+    (codes || []).forEach(c => { const x = r[c]; if (!x) return; if (x.s === 'hold') { const i = v.findIndex(row => String(row[1]).trim().toUpperCase() === c); if (i >= 0 && String(v[i][3]).trim().toUpperCase() === x.a) clearDI_(s, i); } delete r[c]; });
     saveRes_(r); return adminInfo(key);
   } finally { lock.releaseLock(); }
 }

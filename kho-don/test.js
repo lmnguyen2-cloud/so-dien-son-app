@@ -5,7 +5,7 @@ const S=f(...Object.keys(env).filter(k=>!['rows','props'].includes(k)).map(k=>en
 const KEY='doi-ma-quan-ly';
 console.log(S.adminSave(KEY,{sheet:'https://docs.google.com/spreadsheets/d/1fvuQYbjy_IAXPupJg8Ss6RTfRZZbIgGQY8js3q4kEJI/edit',hold:60,open:true,agents:[{name:'Phúc',d:'phuc',pin:'1234',rate:'2',limit:'5.000.000'},{name:'Đức Venus',d:'Đức Venus',pin:'5678',rate:'1,2'}]}).cfg.agents);
 let v=S.agentInfo('1234');console.log('stock',v.stock.n,v.stock.sum,v.rate);
-v=S.agentTake('1234',{target:2000000,k:3});console.log('take',v.picked,v.mine.map(x=>[x.code,x.amount,x.s]));
+v=S.agentTake('1234',{target:2000000,k:3,ty:'VTS'});console.log('td/vts',v.td,v.vts,'I',env.rows.filter(r=>r[3]==='PHUC').map(r=>r[8]).join('|'),'p',v.mine.map(x=>x.p).join(','));console.log('take',v.picked,v.mine.map(x=>[x.code,x.amount,x.s]));
 try{S.agentTake('1234',{target:4000000,k:0})}catch(e){console.log('limit err:',e.message)}
 v=S.agentTake('5678',{target:3000000,k:0});console.log('duc',v.mine.length,v.mine.reduce((t,x)=>t+x.amount,0));
 console.log('D col',env.rows.filter(r=>r[3]==='PHUC'||r[3]==='DUCVENUS').map(r=>r[1].slice(-5)+':'+r[3]).join(' '));
@@ -16,3 +16,4 @@ const r=JSON.parse(env.props.res);Object.values(r).forEach(x=>x.t-=2*3600000);en
 a=S.agentInfo('5678');console.log('after expire duc',a.mine.length,'D duc left',env.rows.filter(r=>r[3]==='DUCVENUS').length,'phuc done kept',env.rows.filter(r=>r[3]==='PHUC').length);
 try{S.agentInfo('0000')}catch(e){console.log('pin err:',e.message)}
 console.log(S.adminInfo(KEY).res.length);
+console.log('orphan I',env.rows.filter(r=>r[8]&&!r[3]).length)

@@ -87,6 +87,7 @@ details summary{cursor:pointer;font-weight:600}
     <button role="tab" data-tab="dl" aria-selected="false" id="t-dl">Đại lý</button>
     <button role="tab" data-tab="loc" aria-selected="false" id="t-loc">Lọc đơn</button>
     <button role="tab" data-tab="no" aria-selected="false" id="t-no">Công nợ</button>
+    <button role="tab" data-tab="pct" aria-selected="false" id="t-pct">% khách</button>
     <button id="t-more" aria-expanded="false">Khác ▾</button>
   </nav>
   <nav id="nav2" hidden>
@@ -137,6 +138,16 @@ details summary{cursor:pointer;font-weight:600}
 </section>
 
 <!-- CÔNG NỢ -->
+<section class="tab" id="tab-pct" hidden>
+  <div class="card">
+    <h2>% khách hôm nay</h2>
+    <p class="hint" id="p-note">% Tín dụng và VTS của từng khách. Lúc giao đơn (Lọc đơn, Kho đơn) app chốt % đang đặt vào cột I sổ tháng, Bank khách tự lấy % đó. Đổi ô nào thì sửa ô đó rồi bấm Lưu — lưu vào tab "Bang %" của sổ tháng.</p>
+    <div class="btns"><button class="btn ghost" id="p-load">Tải % từ sổ</button><button class="btn" id="p-save">Lưu thay đổi</button></div>
+    <label>Tìm khách<input id="p-q" autocomplete="off" placeholder="gõ vài chữ tên"></label>
+    <div class="tbl"><table id="p-tbl"></table></div>
+    <div class="row" style="align-items:end"><label>Khách mới<input id="p-nn" autocomplete="off" placeholder="TEN KHACH"></label><label style="flex:0 1 90px">Tín dụng %<input id="p-nt" inputmode="decimal"></label><label style="flex:0 1 90px">VTS %<input id="p-nv" inputmode="decimal"></label><button class="btn ghost" id="p-add" style="flex:0 0 auto">Thêm</button></div>
+  </div>
+</section>
 <section class="tab" id="tab-no" hidden>
   <div class="card">
     <h2>Công nợ khách</h2>
@@ -176,6 +187,7 @@ details summary{cursor:pointer;font-weight:600}
     </div>
     <div class="chips" id="f-chips"></div>
     <div><label>Số đơn</label><div class="seg" id="f-k"><button data-k="">Bất kỳ</button><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="x">Khác</button></div><input id="f-kx" inputmode="numeric" placeholder="Số đơn" hidden style="margin-top:6px;max-width:140px"></div>
+    <div><label>Loại đơn (chốt % lúc giao)</label><div class="seg" id="f-ty"><button data-t="TD">Tín dụng</button><button data-t="VTS">VTS</button><button data-t="">Chưa rõ</button></div></div>
     <p class="hint" id="f-sum"></p>
     <details id="f-adv"><summary>Nâng cao — lọc dải tiền, đại lý, đợt</summary>
       <div style="display:grid;gap:10px;margin-top:10px">
@@ -354,12 +366,14 @@ function doPost(e) {
     if (b.action === &#x27;check&#x27;) return out_({ ok: true, found: lookup_(b.codes || []) });
     if (b.action === &#x27;insert&#x27;) return out_(insert_(b.rows || []));
     if (b.action === &#x27;stock&#x27;) return out_(stock_());
-    if (b.action === &#x27;assign&#x27;) return out_(assign_(b.codes || [], b.name || &#x27;&#x27;));
+    if (b.action === &#x27;assign&#x27;) return out_(assign_(b.codes || [], b.name || &#x27;&#x27;, b.itag || &#x27;&#x27;));
     if (b.action === &#x27;byname&#x27;) return out_(byname_(b.name, b.lot));
     if (b.action === &#x27;lots&#x27;) return out_(lots_());
     if (b.action === &#x27;lot&#x27;) return out_(lot_(b.lot));
     if (b.action === &#x27;settle&#x27;) return out_(settle_(b.name, b.rows || []));
-    if (b.action === &#x27;draft&#x27;) return out_(draft_(b.codes || [], b.name || &#x27;&#x27;));
+    if (b.action === &#x27;draft&#x27;) return out_(draft_(b.codes || [], b.name || &#x27;&#x27;, b.itag || &#x27;&#x27;));
+    if (b.action === &#x27;rates&#x27;) return out_(rates_());
+    if (b.action === &#x27;ratesSet&#x27;) return out_(ratesSet_(b.rows || []));
     if (b.action === &#x27;drafts&#x27;) return out_(drafts_(b.name || &#x27;&#x27;));
     if (b.action === &#x27;undraft&#x27;) return out_(undraft_(b.codes || []));
     if (b.action === &#x27;ledger&#x27;) return out_(ledger_());
@@ -425,7 +439,7 @@ function stock_() {
 }
 
 // Ghi tên khách vào cột D cho các mã đang trống (không tô xanh, không ghi E — đợi khách làm xong)
-function assign_(codes, name) {
+function assign_(codes, name, itag) {
   name = String(name).trim().toUpperCase();
   if (!name) return { ok: false, err: &#x27;Chưa có tên khách&#x27; };
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
@@ -437,7 +451,7 @@ function assign_(codes, name) {
     v.forEach((r, i) =&gt; { const c = String(r[0]).trim().toUpperCase(); if (!want[c]) return;
       const d = String(r[2]).trim();
       if (d &amp;&amp; d.toUpperCase() !== name) { taken.push([c, d]); return; }
-      if (!d) s.getRange(i + 1, 4).setValue(name);
+      if (!d) { s.getRange(i + 1, 4).setValue(name); if (itag) s.getRange(i + 1, 9).setValue(itag); }
       done.push(c); delete want[c]; });
     return { ok: true, name: book_().getName(), done: done.length, taken: taken, missing: Object.keys(want) };
   } finally { lock.releaseLock(); }
@@ -447,8 +461,8 @@ const strip_ = s =&gt; String(s || &#x27;&#x27;).normalize(&#x27;NFD&#x27;).repl
 // Mã của một khách chưa tính bank (cột D = tên, cột E trống)
 function byname_(name, lot) {
   name = strip_(name); lot = String(lot || &#x27;&#x27;).trim().toUpperCase();
-  const s = sheet_(), last = s.getLastRow(), v = s.getRange(1, 1, last, 5).getValues(), rows = [];
-  v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!/^[A-Z]{2}\d{8,}/.test(c)) return; if (strip_(r[3]) !== name) return; if (String(r[4]).trim() !== &#x27;&#x27;) return; if (lot &amp;&amp; String(r[0]).trim().toUpperCase() !== lot) return; rows.push([i + 1, String(r[0]), c, +r[2] || 0]); });
+  const s = sheet_(), last = s.getLastRow(), v = s.getRange(1, 1, last, 9).getValues(), rows = [];
+  v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!/^[A-Z]{2}\d{8,}/.test(c)) return; if (strip_(r[3]) !== name) return; if (String(r[4]).trim() !== &#x27;&#x27;) return; if (lot &amp;&amp; String(r[0]).trim().toUpperCase() !== lot) return; rows.push([i + 1, String(r[0]), c, +r[2] || 0, String(r[8])]); });
   return { ok: true, name: book_().getName(), rows: rows };
 }
 function lots_() {
@@ -482,7 +496,7 @@ function ledgerAdd_(rows) { const s = ledgerSheet_(); rows.forEach(r =&gt; s.app
 
 // ===== Nháp (cột H): &quot;HT 27/11 12:10&quot; — giữ đơn đã gửi khách, chưa ghi D =====
 function stamp_() { return Utilities.formatDate(new Date(), &#x27;Asia/Ho_Chi_Minh&#x27;, &#x27;dd/MM HH:mm&#x27;); }
-function draft_(codes, name) {
+function draft_(codes, name, itag) {
   name = strip_(name); if (!name) return { ok: false, err: &#x27;Chưa có tên khách&#x27; };
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
@@ -491,15 +505,15 @@ function draft_(codes, name) {
     v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!want[c]) return; delete want[c];
       const d = String(r[3]).trim(), h = String(r[7]).trim();
       if (d || (h &amp;&amp; strip_(h.split(&#x27; &#x27;)[0]) !== name)) { taken.push([c, d || h]); return; }
-      s.getRange(i + 1, 8).setValue(tag); s.getRange(i + 1, 1, 1, 4).setBackground(&#x27;#fff2b3&#x27;); done++; });
+      s.getRange(i + 1, 8, 1, 2).setValues([[tag, itag || &#x27;&#x27;]]); s.getRange(i + 1, 1, 1, 4).setBackground(&#x27;#fff2b3&#x27;); done++; });
     return { ok: true, name: book_().getName(), done: done, tag: tag, taken: taken, missing: Object.keys(want) };
   } finally { lock.releaseLock(); }
 }
 function drafts_(name) {
-  name = strip_(name); const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 8).getValues(), rows = [];
+  name = strip_(name); const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 9).getValues(), rows = [];
   v.forEach((r, i) =&gt; { const h = String(r[7]).trim(), c = String(r[1]).trim().toUpperCase();
     if (!h || !/^[A-Z]{2}\d{8,}/.test(c) || String(r[3]).trim()) return; if (name &amp;&amp; strip_(h.split(&#x27; &#x27;)[0]) !== name) return;
-    rows.push([i + 1, String(r[0]), c, +r[2] || 0, h]); });
+    rows.push([i + 1, String(r[0]), c, +r[2] || 0, h, String(r[8])]); });
   return { ok: true, name: book_().getName(), rows: rows };
 }
 function undraft_(codes) {
@@ -508,9 +522,23 @@ function undraft_(codes) {
     const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 8).getValues(), want = {}; let done = 0;
     codes.forEach(c =&gt; want[String(c).trim().toUpperCase()] = 1);
     v.forEach((r, i) =&gt; { const c = String(r[1]).trim().toUpperCase(); if (!want[c] || !String(r[7]).trim() || String(r[3]).trim()) return;
-      s.getRange(i + 1, 8).setValue(&#x27;&#x27;); s.getRange(i + 1, 1, 1, 4).setBackground(null); delete want[c]; done++; });
+      s.getRange(i + 1, 8, 1, 2).setValues([[&#x27;&#x27;, &#x27;&#x27;]]); s.getRange(i + 1, 1, 1, 4).setBackground(null); delete want[c]; done++; });
     return { ok: true, name: book_().getName(), done: done, missing: Object.keys(want) };
   } finally { lock.releaseLock(); }
+}
+
+// ===== % khách (tab &quot;Bang %&quot;: Thời gian · Khách · Tín dụng % · VTS %) =====
+function rateSheet_() { const b = book_(); let s = b.getSheetByName(&#x27;Bang %&#x27;); if (!s) { s = b.insertSheet(&#x27;Bang %&#x27;); s.appendRow([&#x27;Thời gian&#x27;, &#x27;Khách&#x27;, &#x27;Tín dụng %&#x27;, &#x27;VTS %&#x27;]); } return s; }
+function rates_() {
+  const s = rateSheet_(), n = s.getLastRow(), o = {};
+  if (n &gt; 1) s.getRange(2, 1, n - 1, 4).getValues().forEach(r =&gt; { const k = strip_(r[1]); if (k) o[k] = [k, r[2], r[3], r[0] instanceof Date ? Utilities.formatDate(r[0], &#x27;Asia/Ho_Chi_Minh&#x27;, &#x27;dd/MM/yyyy HH:mm&#x27;) : String(r[0])]; });
+  const m = sheet_(); m.getRange(1, 4, m.getLastRow(), 1).getValues().forEach(r =&gt; { const k = strip_(r[0]); if (k &amp;&amp; !/^TR[AẢ]DL/.test(k) &amp;&amp; !o[k]) o[k] = [k, &#x27;&#x27;, &#x27;&#x27;, &#x27;&#x27;]; });
+  return { ok: true, name: book_().getName(), rows: Object.keys(o).map(k =&gt; o[k]) };
+}
+function ratesSet_(rows) {
+  const s = rateSheet_(), at = Utilities.formatDate(new Date(), &#x27;Asia/Ho_Chi_Minh&#x27;, &#x27;dd/MM/yyyy HH:mm&#x27;);
+  rows.forEach(r =&gt; s.appendRow([at, strip_(r[0]), r[1] == null ? &#x27;&#x27; : r[1], r[2] == null ? &#x27;&#x27; : r[2]]));
+  return { ok: true, at: at };
 }
 </pre>
   </div>
@@ -747,6 +775,22 @@ function fillLists(){
 $('c-khach').value=store.get('khach',DEF_KHACH); $('c-daily').value=store.get('daily',DEF_DAILY);
 $('c-save').onclick=()=>{store.set('khach',$('c-khach').value);store.set('daily',$('c-daily').value);KH=parseMap($('c-khach').value);DL=parseMap($('c-daily').value);fillLists();toast('Đã lưu')};
 fillLists();
+/* ===== % khách (Bang %) ===== */
+let RATES=store.get('rates',{});const pctS=n=>n==null||n===''?'':String(Math.round(+n*100)/100).replace('.',',');
+const pNum=v=>{v=String(v==null?'':v).trim().replace('%','').replace(',','.');return v===''||isNaN(+v)?null:+v};
+function rateFor(name,ty){const r=RATES[Calc.strip(name)];if(r&&ty&&r[ty.toLowerCase()]!=null)return r[ty.toLowerCase()];if(r&&!ty)return r.td!=null?r.td:r.vts;return KH[Calc.strip(name)]!=null?KH[Calc.strip(name)]:null}
+const iTag=(ty,rate)=>rate==null?'':((ty?ty+' ':'')+pctS(rate)+'%');
+const iRate=t=>{const m=String(t||'').match(/(\d+(?:[.,]\d+)?)\s*%/);return m?m[1]:null};
+function renderPct(){const q=Calc.strip($('p-q').value),ks=Object.keys(RATES).filter(k=>!q||k.includes(q)).sort();
+  $('p-tbl').innerHTML='<tr><th>Khách</th><th style="text-align:right">Tín dụng %</th><th style="text-align:right">VTS %</th><th>Đặt lúc</th></tr>'+(ks.length?ks.map(k=>`<tr data-k="${esc(k)}"><td>${esc(k)}</td><td><input data-f="td" inputmode="decimal" value="${pctS(RATES[k].td)}" style="width:70px;text-align:right"></td><td><input data-f="vts" inputmode="decimal" value="${pctS(RATES[k].vts)}" style="width:70px;text-align:right"></td><td class="hint">${esc(RATES[k].at||'')}</td></tr>`).join(''):'<tr><td colspan="4" class="hint">Chưa có — bấm "Tải % từ sổ".</td></tr>');
+  ['dl-khach'].forEach(id=>{const o=new Set([...Object.keys(KH),...Object.keys(RATES)]);$(id).innerHTML=[...o].map(k=>`<option value="${esc(k)}">`).join('')})}
+$('p-q').addEventListener('input',renderPct);
+$('p-load').onclick=async()=>{$('p-note').textContent='Đang tải…';try{const j=await api({action:'rates'});RATES={};j.rows.forEach(r=>{RATES[Calc.strip(r[0])]={td:pNum(r[1]),vts:pNum(r[2]),at:r[3]||''}});store.set('rates',RATES);renderPct();$('p-note').textContent=`${j.rows.length} khách trong "${j.name}".`}catch(e){$('p-note').textContent='Không tải được: '+e.message}};
+$('p-add').onclick=()=>{const n=Calc.strip($('p-nn').value);if(!n){toast('Nhập tên khách');return}RATES[n]=Object.assign(RATES[n]||{},{td:pNum($('p-nt').value),vts:pNum($('p-nv').value),at:'(chưa lưu)',dirty:1});$('p-nn').value=$('p-nt').value=$('p-nv').value='';renderPct()};
+$('p-tbl').addEventListener('change',e=>{const i=e.target.closest('input[data-f]');if(!i)return;const k=i.closest('tr').dataset.k;RATES[k][i.dataset.f]=pNum(i.value);RATES[k].dirty=1;i.style.color='var(--warn)'});
+$('p-save').onclick=async()=>{const ks=Object.keys(RATES).filter(k=>RATES[k].dirty);if(!ks.length){toast('Chưa đổi gì');return}$('p-note').textContent='Đang lưu…';
+  try{const j=await api({action:'ratesSet',rows:ks.map(k=>[k,RATES[k].td,RATES[k].vts])});ks.forEach(k=>{delete RATES[k].dirty;RATES[k].at=j.at});store.set('rates',RATES);renderPct();$('p-note').textContent=`Đã lưu ${ks.length} khách lúc ${j.at}.`}catch(e){$('p-note').textContent='Không lưu được: '+e.message}};
+renderPct();
 
 /* ===== Ảnh chi tiết ===== */
 function drawImg(title,sub,rows,foot){
@@ -804,7 +848,7 @@ function renderBank(){
   }
   window._bank=res; store.set('bank_draft',{n:name,r:$('b-rate').value,i:$('b-in').value,u:$('b-ung').value,t:$('b-tru').value});
 }
-$('b-name').addEventListener('change',()=>{const k=Calc.strip($('b-name').value);if(KH[k]!=null){$('b-rate').value=String(KH[k]).replace('.',',')}renderBank()});
+$('b-name').addEventListener('change',()=>{const r=rateFor($('b-name').value,'');if(r!=null){$('b-rate').value=pctS(r)}renderBank()});
 ['b-rate','b-in','b-ung','b-tru','b-lines','b-name'].forEach(id=>$(id).addEventListener('input',renderBank));
 ['b-in','d-in'].forEach(id=>$(id).addEventListener('input',()=>{delete $(id).dataset.sample}));
 $('b-copy').onclick=()=>copyText($('b-msg').textContent,$('b-msg'));
@@ -972,7 +1016,7 @@ const GS={
   async assign(id,b){const name=String(b.name||'').trim().toUpperCase();if(!name)throw new Error('Chưa có tên khách');const m=await gMeta(id),R=await gRead(id,m);
     const want=new Set((b.codes||[]).map(c=>String(c).trim().toUpperCase())),data=[],taken=[],done=[];
     R.v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!want.has(c))return;const d=String(r[3]||'').trim();
-      if(d&&d.toUpperCase()!==name){taken.push([c,d]);want.delete(c);return}if(!d)data.push({range:`'${m.tab}'!D${i+1}`,values:[[name]]});done.push(c);want.delete(c)});
+      if(d&&d.toUpperCase()!==name){taken.push([c,d]);want.delete(c);return}if(!d){data.push({range:`'${m.tab}'!D${i+1}`,values:[[name]]});if(b.itag)data.push({range:`'${m.tab}'!I${i+1}`,values:[[b.itag]]})}done.push(c);want.delete(c)});
     if(data.length)await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data});
     return{ok:true,name:m.name,done:done.length,taken,missing:[...want]}},
   async insert(id,b){const m=await gMeta(id),R=await gRead(id,m),seen={};
@@ -1131,7 +1175,7 @@ function renderLoc(){
   $('f-lots').innerHTML=lots.map(l=>`<button data-l="${esc(l)}" aria-pressed="${SEL.lots.has(l)}">${esc(l)} · ${all.filter(r=>r.lot===l).length}</button>`).join('')||'<span class="hint">—</span>';
   const bp=basePool();const mn=Calc.num($('f-min').value),mx=Calc.num($('f-max').value);
   $('f-band').innerHTML=BANDS.map(([t,a,b])=>{const x=bp.filter(r=>r.amount>=a&&r.amount<b);return `<button data-mn="${a}" data-mx="${b<1e12?b-1:0}" aria-pressed="${mn===a&&mx===(b<1e12?b-1:0)}">${t} · ${x.length} đơn · ${short(x.reduce((s,r)=>s+r.amount,0))}</button>`}).join('');
-  document.querySelectorAll('#f-k button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.k===fK)));$('f-kx').hidden=fK!=='x';
+  document.querySelectorAll('#f-k button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.k===fK)));document.querySelectorAll('#f-ty button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===fTy)));$('f-kx').hidden=fK!=='x';
   const tg=Calc.num($('f-target').value),k=kSel(),P=pool();
   let info=`Kho sau lọc: ${P.length} đơn · ${Calc.dots(P.reduce((s,r)=>s+r.amount,0))}`;
   if(tg&&k){const avg=tg/k;const bd=BANDS.find(([,a,b])=>avg>=a&&avg<b);info=`Lấy đúng ${k} đơn · ≈ ${short(avg)} mỗi đơn · kho ${bd[0]} còn ${bp.filter(r=>r.amount>=bd[1]&&r.amount<bd[2]).length} đơn · ${info}`}
@@ -1172,12 +1216,14 @@ function renderPick(){const tg=Calc.num($('f-target').value),s=PICK.reduce((t,r)
   $('f-tbl').innerHTML='<tr><th>#</th><th>Mã</th><th style="text-align:right">Tiền</th><th>Đợt</th>'+(ck?'<th style="text-align:right">Cước</th>':'')+'</tr>'+PICK.map((r,i)=>`<tr${r.rem!=null&&r.rem!==r.amount?' class="warn"':''}><td>${i+1}</td><td>${r.code}</td><td class="n">${Calc.dots(r.amount)}</td><td>${esc(r.lot)}</td>${ck?`<td class="n">${r.rem==null?'—':Calc.dots(r.rem)}</td>`:''}</tr>`).join('');$('f-note').textContent=''}
 $('f-load').onclick=async()=>{$('f-kho').textContent='Đang tải kho…';try{const j=await api({action:'stock'});STOCK={at:new Date().toLocaleString('vi-VN'),name:j.name,rows:j.rows.map(r=>({row:r[0],lot:r[1],code:r[2],amount:r[3]}))};store.set('stock',STOCK);TAKEN.clear();store.set('taken',[]);CHK_BAD.clear();store.set('chkbad',[]);renderLoc();nhapLoad(true)}catch(e){$('f-kho').textContent='Không tải được kho: '+e.message;}};
 $('f-chips').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('f-target').value=Calc.dots(+b.dataset.v);renderLoc()};
+let fTy=store.get('fty','');function fRateFill(){const r=rateFor($('f-name').value,fTy);if(r!=null)$('f-rate').value=pctS(r)}
+$('f-ty').onclick=e=>{const b=e.target.closest('button');if(!b)return;fTy=b.dataset.t;store.set('fty',fTy);fRateFill();renderLoc()};
 $('f-k').onclick=e=>{const b=e.target.closest('button');if(!b)return;fK=b.dataset.k;renderLoc()};
 $('f-band').onclick=e=>{const b=e.target.closest('button');if(!b)return;const on=b.getAttribute('aria-pressed')==='true';$('f-min').value=on?'':Calc.dots(+b.dataset.mn);$('f-max').value=on||!+b.dataset.mx?'':Calc.dots(+b.dataset.mx);renderLoc()};
 $('f-agents').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;SEL.agents.has(a)?SEL.agents.delete(a):SEL.agents.add(a);SEL.lots.clear();renderLoc()};
 $('f-lots').onclick=e=>{const b=e.target.closest('button');if(!b)return;const l=b.dataset.l;SEL.lots.has(l)?SEL.lots.delete(l):SEL.lots.add(l);renderLoc()};
 ['f-target','f-kx','f-min','f-max','f-xmin','f-xmax','f-rate'].forEach(id=>$(id).addEventListener('input',renderLoc));
-$('f-name').addEventListener('change',()=>{const k=Calc.strip($('f-name').value);if(KH[k]!=null)$('f-rate').value=String(KH[k]).replace('.',',');renderLoc()});
+$('f-name').addEventListener('change',()=>{fRateFill();renderLoc()});
 $('f-go').onclick=()=>runLoc(false);$('f-again').onclick=()=>runLoc(true);
 $('f-copy').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}const s=PICK.reduce((t,r)=>t+r.amount,0);copyText(PICK.map(r=>r.code+'\t'+Calc.dots(r.amount)).join('\n')+'\nTổng\t'+Calc.dots(s),$('f-tbl'))};
 let asArm=0;
@@ -1185,7 +1231,7 @@ $('f-assign').onclick=async()=>{const nm=Calc.strip($('f-name').value);if(!PICK.
   if(nm==='PHUC'){$('f-note').textContent='Đơn giao Phúc không ghi tên lên sổ tháng (chỉ ghi khi Phúc báo làm xong). App chỉ đánh dấu đã lấy khỏi kho.';PICK.forEach(r=>TAKEN.add(r.code));store.set('taken',[...TAKEN]);renderLoc();return}
   if(!asArm){asArm=1;setTimeout(()=>asArm=0,15000);$('f-note').textContent=`Sẽ ghi tên ${nm} vào cột D cho ${PICK.length} mã (không tô xanh, không ghi % — đợi khách làm xong). Bấm lần nữa để xác nhận.`;return}
   asArm=0;$('f-note').textContent='Đang ghi…';
-  try{const j=await api({action:'assign',name:nm,codes:PICK.map(r=>r.code)});PICK.forEach(r=>TAKEN.add(r.code));store.set('taken',[...TAKEN]);
+  try{const j=await api({action:'assign',name:nm,codes:PICK.map(r=>r.code),itag:iTag(fTy,pNum($('f-rate').value))});PICK.forEach(r=>TAKEN.add(r.code));store.set('taken',[...TAKEN]);
     $('f-note').textContent=`Đã ghi ${nm} cho ${j.done} mã trong "${j.name}".`+(j.taken.length?` ${j.taken.length} mã đã có người khác: ${j.taken.map(x=>x[0].slice(-5)+' ('+x[1]+')').join(', ')}.`:'')+(j.missing.length?` ${j.missing.length} mã không thấy trong sổ.`:'');renderLoc()}
   catch(e){$('f-note').textContent='Không ghi được: '+e.message}};
 $('f-tobank').onclick=()=>{if(!PICK.length){toast('Lọc đơn trước');return}$('b-name').value=Calc.strip($('f-name').value);$('b-rate').value=$('f-rate').value;$('b-in').value=PICK.map(r=>r.code+' '+Calc.dots(r.amount)).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';renderBank();show('bank')};
@@ -1200,7 +1246,8 @@ $('theme').onchange=()=>{store.set('theme',$('theme').value);applyTheme($('theme
 /* ===== Sổ tháng: thêm lệnh cho bank, đại lý, công nợ ===== */
 const isTraDL=d=>/tr[aả]\s*đ?d?\s*l/i.test(String(d||''));
 async function gReadE(id,m){const [v,f]=await Promise.all([gVals(id,m,'A1:E'),gVals(id,m,'G1:G','FORMULA')]);return{v,f}}
-const LEDGER='Cong no';
+const LEDGER='Cong no',RATE_TAB='Bang %';
+async function gTab(id,title,head){const j=await gfetch('GET',SH+id+'?fields=properties.title,sheets.properties(sheetId,title)');if(!j.sheets.find(x=>x.properties.title===title)){await gfetch('POST',SH+id+':batchUpdate',{requests:[{addSheet:{properties:{title}}}]});await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:[{range:`'${title}'!A1:D1`,values:[head]}]})}return{name:j.properties.title}}
 const p2=n=>String(n).padStart(2,'0');
 function nhapStamp(d){d=d||new Date();return `${p2(d.getDate())}/${p2(d.getMonth()+1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`}
 function nhapAge(h,now){const m=String(h||'').match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);if(!m)return 0;now=now||new Date();let d=new Date(now.getFullYear(),+m[2]-1,+m[1],+m[3],+m[4]);if(d-now>864e5)d.setFullYear(d.getFullYear()-1);return Math.max(0,(now-d)/36e5)}
@@ -1210,8 +1257,8 @@ async function gLedgerTab(id){const j=await gfetch('GET',SH+id+'?fields=properti
     await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:[{range:`'${LEDGER}'!A1:E1`,values:[['Ngày','Khách','Loại','Số tiền','Ghi chú']]}]})}
   return{name:j.properties.title}}
 Object.assign(GS,{
-  async byname(id,b){const name=Calc.strip(b.name),lot=String(b.lot||'').trim().toUpperCase();const m=await gMeta(id),{v}=await gReadE(id,m),rows=[];
-    v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!/^[A-Z]{2}\d{8,}/.test(c))return;if(Calc.strip(r[3])!==name)return;if(String(r[4]||'').trim()!=='')return;if(lot&&String(r[0]||'').trim().toUpperCase()!==lot)return;rows.push([i+1,String(r[0]||''),c,+r[2]||0])});
+  async byname(id,b){const name=Calc.strip(b.name),lot=String(b.lot||'').trim().toUpperCase();const m=await gMeta(id),v=await gVals(id,m,'A1:I'),rows=[];
+    v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!/^[A-Z]{2}\d{8,}/.test(c))return;if(Calc.strip(r[3])!==name)return;if(String(r[4]||'').trim()!=='')return;if(lot&&String(r[0]||'').trim().toUpperCase()!==lot)return;rows.push([i+1,String(r[0]||''),c,+r[2]||0,String(r[8]||'')])});
     return{ok:true,name:m.name,rows}},
   async lots(id){const m=await gMeta(id),v=await gVals(id,m,'A1:B'),o={};v.forEach(r=>{const a=String(r[0]||'').trim(),c=String(r[1]||'');if(a&&/^[A-Z]{2}\d/.test(c))o[a]=(o[a]||0)+1});return{ok:true,name:m.name,lots:Object.entries(o)}},
   async lot(id,b){const lot=String(b.lot||'').trim().toUpperCase();const m=await gMeta(id),v=await gVals(id,m,'A1:D'),rows=[];
@@ -1233,18 +1280,23 @@ Object.assign(GS,{
   async draft(id,b){const name=Calc.strip(b.name);if(!name)throw new Error('Chưa có tên khách');const m=await gMeta(id),v=await gVals(id,m,'A1:H');
     const want=new Set((b.codes||[]).map(c=>String(c).trim().toUpperCase())),tag=name+' '+nhapStamp(),data=[],idx=[],taken=[];
     v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(!want.has(c))return;want.delete(c);const d=String(r[3]||'').trim(),h=String(r[7]||'').trim();
-      if(d||(h&&Calc.strip(h.split(' ')[0])!==name)){taken.push([c,d||h]);return}data.push({range:`'${m.tab}'!H${i+1}`,values:[[tag]]});idx.push(i)});
+      if(d||(h&&Calc.strip(h.split(' ')[0])!==name)){taken.push([c,d||h]);return}data.push({range:`'${m.tab}'!H${i+1}:I${i+1}`,values:[[tag,b.itag||'']]});idx.push(i)});
     if(data.length){await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data});
       await gfetch('POST',SH+id+':batchUpdate',{requests:idx.map(i=>({repeatCell:{range:{sheetId:m.sid,startRowIndex:i,endRowIndex:i+1,startColumnIndex:0,endColumnIndex:4},cell:{userEnteredFormat:{backgroundColor:{red:1,green:.95,blue:.7}}},fields:'userEnteredFormat.backgroundColor'}}))})}
     return{ok:true,name:m.name,done:idx.length,tag,taken,missing:[...want]}},
-  async drafts(id,b){const name=Calc.strip(b&&b.name||'');const m=await gMeta(id),v=await gVals(id,m,'A1:H'),rows=[];
-    v.forEach((r,i)=>{const h=String(r[7]||'').trim(),c=String(r[1]||'').trim().toUpperCase();if(!h||!/^[A-Z]{2}\d{8,}/.test(c)||String(r[3]||'').trim())return;if(name&&Calc.strip(h.split(' ')[0])!==name)return;rows.push([i+1,String(r[0]||''),c,+r[2]||0,h])});
+  async drafts(id,b){const name=Calc.strip(b&&b.name||'');const m=await gMeta(id),v=await gVals(id,m,'A1:I'),rows=[];
+    v.forEach((r,i)=>{const h=String(r[7]||'').trim(),c=String(r[1]||'').trim().toUpperCase();if(!h||!/^[A-Z]{2}\d{8,}/.test(c)||String(r[3]||'').trim())return;if(name&&Calc.strip(h.split(' ')[0])!==name)return;rows.push([i+1,String(r[0]||''),c,+r[2]||0,h,String(r[8]||'')])});
     return{ok:true,name:m.name,rows}},
   async undraft(id,b){const m=await gMeta(id),v=await gVals(id,m,'A1:H');const want=new Set((b.codes||[]).map(c=>String(c).trim().toUpperCase())),idx=[];
     v.forEach((r,i)=>{const c=String(r[1]||'').trim().toUpperCase();if(want.has(c)&&String(r[7]||'').trim()&&!String(r[3]||'').trim()){idx.push(i);want.delete(c)}});
-    if(idx.length){await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:idx.map(i=>({range:`'${m.tab}'!H${i+1}`,values:[['']]}))});
+    if(idx.length){await gfetch('POST',SH+id+'/values:batchUpdate',{valueInputOption:'RAW',data:idx.map(i=>({range:`'${m.tab}'!H${i+1}:I${i+1}`,values:[['','']]}))});
       await gfetch('POST',SH+id+':batchUpdate',{requests:idx.map(i=>({repeatCell:{range:{sheetId:m.sid,startRowIndex:i,endRowIndex:i+1,startColumnIndex:0,endColumnIndex:4},cell:{userEnteredFormat:{}},fields:'userEnteredFormat.backgroundColor'}}))})}
     return{ok:true,name:m.name,done:idx.length,missing:[...want]}},
+  async rates(id){const t=await gTab(id,RATE_TAB,['Thời gian','Khách','Tín dụng %','VTS %']);const j=await gfetch('GET',SH+id+'/values/'+encodeURIComponent(`'${RATE_TAB}'!A2:D`)+'?valueRenderOption=UNFORMATTED_VALUE');const o={};(j.values||[]).forEach(r=>{const k=Calc.strip(r[1]);if(k)o[k]=[k,r[2],r[3],String(r[0]||'')]});
+    try{const m=await gMeta(id),dv=await gVals(id,m,'D1:D');dv.forEach(r=>{const k=Calc.strip(r[0]);if(k&&!isTraDL(r[0])&&!o[k])o[k]=[k,'','','']})}catch(e){}
+    return{ok:true,name:t.name,rows:Object.values(o)}},
+  async ratesSet(id,b){await gTab(id,RATE_TAB,['Thời gian','Khách','Tín dụng %','VTS %']);const d=new Date(),at=`${p2(d.getDate())}/${p2(d.getMonth()+1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    await gfetch('POST',SH+id+'/values/'+encodeURIComponent(`'${RATE_TAB}'!A:D`)+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{values:(b.rows||[]).map(r=>[at,Calc.strip(r[0]),r[1]==null?'':r[1],r[2]==null?'':r[2]])});return{ok:true,at}},
   async ledgerAdd(id,b){await gLedgerTab(id);await gfetch('POST',SH+id+'/values/'+encodeURIComponent(`'${LEDGER}'!A:E`)+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{values:b.rows});return{ok:true}}
 });
 /* ===== Lọc đơn: kiểm tra cước + nháp ===== */
@@ -1267,16 +1319,16 @@ window.locChkDone=R=>{$('f-chk').disabled=false;const m={};(R.rows||[]).forEach(
   $('f-note').textContent=(LC.dropped.length?`Đã bỏ ${LC.dropped.length} mã (${LC.dropped.map(x=>x[0].slice(-5)+' '+x[1]).join(', ')})`+(LC.round>1?', đã lọc bù.':'.'):'Tất cả mã còn cước.')+` Còn ${PICK.length} đơn · ${Calc.dots(s2)}.`+(PICK.some(r=>r.rem!==r.amount)?' Dòng vàng: cước khác số trong sổ.':'')+' Bấm "Gửi khách & ghi nháp".'};
 let nhArm=0;
 $('f-nhap').onclick=async()=>{const nm=Calc.strip($('f-name').value);if(!PICK.length||!nm){toast('Lọc đơn và nhập tên khách trước');return}
-  if(!nhArm){nhArm=1;setTimeout(()=>nhArm=0,15000);$('f-note').textContent=`Sẽ ghi nháp "${nm} ${nhapStamp()}" vào cột H cho ${PICK.length} mã (tô vàng, chưa ghi cột D) rồi mở Zalo gửi danh sách. Bấm lần nữa để xác nhận.`;return}
+  if(!nhArm){nhArm=1;setTimeout(()=>nhArm=0,15000);$('f-note').textContent=`Sẽ ghi nháp "${nm} ${nhapStamp()}" vào cột H và "${iTag(fTy,pNum($('f-rate').value))||'(chưa có %)'}" vào cột I cho ${PICK.length} mã (tô vàng, chưa ghi cột D) rồi mở Zalo gửi danh sách. Bấm lần nữa để xác nhận.`;return}
   nhArm=0;$('f-note').textContent='Đang ghi nháp…';const s0=PICK.reduce((t,r)=>t+r.amount,0),txt=PICK.map(r=>r.code+'\t'+Calc.dots(r.amount)).join('\n')+'\nTổng\t'+Calc.dots(s0);
-  try{const j=await api({action:'draft',name:nm,codes:PICK.map(r=>r.code)});PICK.forEach(r=>TAKEN.add(r.code));store.set('taken',[...TAKEN]);
+  try{const j=await api({action:'draft',name:nm,codes:PICK.map(r=>r.code),itag:iTag(fTy,pNum($('f-rate').value))});PICK.forEach(r=>TAKEN.add(r.code));store.set('taken',[...TAKEN]);
     $('f-note').textContent=`Đã ghi nháp ${j.done} mã "${j.tag}" trong "${j.name}".`+(j.taken.length?` ${j.taken.length} mã đã có người giữ: ${j.taken.map(x=>x[0].slice(-5)+' ('+x[1]+')').join(', ')} — kiểm lại trước khi gửi.`:'')+(j.missing.length?` ${j.missing.length} mã không thấy trong sổ.`:'');
     renderLoc();if(!j.taken.length)zaloText(txt);nhapLoad(true)}
   catch(e){$('f-note').textContent='Không ghi được nháp: '+e.message}};
 let NH=[];
 function nhapGroups(){const g={};NH.forEach(r=>{const tag=r[4];(g[tag]=g[tag]||{tag,name:Calc.strip(tag.split(' ')[0]),rows:[],age:nhapAge(tag)}).rows.push(r)});return Object.values(g).sort((a,b)=>b.age-a.age)}
 function renderNhap(){const G2=nhapGroups();
-  $('nh-list').innerHTML=G2.length?G2.map(g=>{const s=g.rows.reduce((t,r)=>t+r[3],0),old=g.age>=3;return `<div class="nh-g${old?' old':''}" data-k="${esc(g.tag)}"><div><b>${esc(g.tag)}</b> · ${g.rows.length} đơn · ${Calc.dots(s)} · <span style="color:${old?'var(--bad)':'var(--muted)'}">giữ ${ageTxt(g.age)}${old?' — quá 3 giờ':''}</span></div><div class="hint">${g.rows.map(r=>r[2].slice(-5)+' '+Calc.dots(r[3])).join(' · ')}</div><div class="btns"><button class="btn ghost" data-a="bank">Sang Bank khách</button><button class="btn ghost" data-a="back">Trả lượt này về kho</button></div></div>`}).join(''):'<p class="hint">Không có nháp nào.</p>';
+  $('nh-list').innerHTML=G2.length?G2.map(g=>{const s=g.rows.reduce((t,r)=>t+r[3],0),old=g.age>=3;return `<div class="nh-g${old?' old':''}" data-k="${esc(g.tag)}"><div><b>${esc(g.tag)}</b>${g.rows[0][5]?' · '+esc(g.rows[0][5]):''} · ${g.rows.length} đơn · ${Calc.dots(s)} · <span style="color:${old?'var(--bad)':'var(--muted)'}">giữ ${ageTxt(g.age)}${old?' — quá 3 giờ':''}</span></div><div class="hint">${g.rows.map(r=>r[2].slice(-5)+' '+Calc.dots(r[3])).join(' · ')}</div><div class="btns"><button class="btn ghost" data-a="bank">Sang Bank khách</button><button class="btn ghost" data-a="back">Trả lượt này về kho</button></div></div>`}).join(''):'<p class="hint">Không có nháp nào.</p>';
   const old=G2.filter(g=>g.age>=3),w=$('nhap-warn');w.hidden=!old.length;if(old.length)w.textContent='⚠ Nháp giữ quá 3 giờ: '+old.map(g=>`${g.tag} · ${g.rows.length} đơn (${ageTxt(g.age)})`).join(' · ')+' — bấm để xem'}
 async function nhapLoad(quiet){if(!quiet)$('nh-note').textContent='Đang tải nháp…';try{const j=await api({action:'drafts'});NH=j.rows||[];renderNhap();if(!quiet)$('nh-note').textContent=`${NH.length} đơn nháp trong "${j.name}".`}catch(e){if(!quiet)$('nh-note').textContent='Không tải được nháp: '+e.message}}
 $('nh-load').onclick=()=>nhapLoad(false);
@@ -1290,16 +1342,16 @@ function nhapCanAuto(){return (HAS_G&&GSHEET&&GSHEET.id&&G.tok)||(!HAS_G&&BR.url
 setTimeout(()=>{if(nhapCanAuto())nhapLoad(true)},1500);setInterval(()=>{if(nhapCanAuto())nhapLoad(true);else if(NH.length)renderNhap()},10*60*1000);
 /* ===== Bank từ sổ ===== */
 let BS=null;
-$('bs-name').addEventListener('change',()=>{const k=Calc.strip($('bs-name').value);if(KH[k]!=null)$('b-rate').value=String(KH[k]).replace('.',',')});
+$('bs-name').addEventListener('change',()=>{const r=rateFor($('bs-name').value,'');if(r!=null)$('b-rate').value=pctS(r)});
 $('bs-load').onclick=async()=>{const name=Calc.strip($('bs-name').value);if(!name){toast('Nhập tên khách');return}$('bs-note').textContent='Đang lấy từ sổ…';
   try{const j=await api({action:'byname',name,lot:$('bs-lot').value});BS={name,rows:j.rows};BACK=[];$('bs-back').hidden=true;
     if(!j.rows.length){$('bs-note').textContent=`Không có mã nào của ${name} chưa tính bank trong "${j.name}".`;return}
-    $('b-name').value=name;if(KH[name]!=null&&!$('b-rate').value)$('b-rate').value=String(KH[name]).replace('.',',');
-    $('b-in').value=j.rows.sort((a,b)=>a[3]-b[3]).map(r=>r[2]+' '+Calc.dots(r[3])).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';renderBank();
+    $('b-name').value=name;if(rateFor(name,'')!=null&&!$('b-rate').value)$('b-rate').value=pctS(rateFor(name,''));
+    $('b-in').value=j.rows.sort((a,b)=>a[3]-b[3]).map(r=>r[2]+' '+Calc.dots(r[3])+(iRate(r[4])?' '+iRate(r[4])+'%':'')).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';renderBank();
     const lots=[...new Set(j.rows.map(r=>r[1]))];$('bs-note').textContent=`Lấy ${j.rows.length} mã của ${name} (${lots.join(', ')}). Kiểm % rồi bấm Check cước hoặc Gửi bank & chốt. Mã có % riêng thì thêm % cuối dòng.`}
   catch(e){$('bs-note').textContent='Không lấy được: '+e.message}};
-function bsFromNhap(name,rows){BS={name,rows:rows.map(r=>[r[0],r[1],r[2],r[3]]),nhap:true};$('bs-name').value=name;$('b-name').value=name;if(KH[name]!=null)$('b-rate').value=String(KH[name]).replace('.',',');
-  $('b-in').value=rows.slice().sort((a,b)=>a[3]-b[3]).map(r=>r[2]+' '+Calc.dots(r[3])).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';BACK=[];$('bs-back').hidden=true;renderBank();show('bank');
+function bsFromNhap(name,rows){BS={name,rows:rows.map(r=>[r[0],r[1],r[2],r[3]]),nhap:true};$('bs-name').value=name;$('b-name').value=name;if(rateFor(name,'')!=null)$('b-rate').value=pctS(rateFor(name,''));
+  $('b-in').value=rows.slice().sort((a,b)=>a[3]-b[3]).map(r=>r[2]+' '+Calc.dots(r[3])+(iRate(r[5])?' '+iRate(r[5])+'%':'')).join('\n');delete $('b-in').dataset.sample;$('b-ung').value='';$('b-tru').value='';BACK=[];$('bs-back').hidden=true;renderBank();show('bank');
   $('bs-note').textContent=`Lấy ${rows.length} đơn nháp của ${name}. Bấm "Check cước các mã này": mã 0đ là khách đã làm, mã còn cước sẽ bỏ ra để trả về kho.`}
 let BACK=[];
 $('bs-nhap').onclick=async()=>{const name=Calc.strip($('bs-name').value);if(!name){toast('Nhập tên khách');return}$('bs-note').textContent='Đang lấy đơn nháp…';

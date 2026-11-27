@@ -5,8 +5,9 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
 ## Cấu trúc
 - `web/so-dien-son.html` — **nguồn chính** của app (một file HTML/JS). Chạy được 3 nơi: bản web (artifact Claude), file mở trên máy, và bên trong APK (WebView, có `window.Native`).
   Tab chính: Nhận lô · Bank khách · Đại lý · Lọc đơn · Công nợ; nút "Khác" mở Check cước · Tra mã · Cài đặt.
-  Lệnh sổ tháng qua `api({action})` (Google Sheets API khi đăng nhập Google, hoặc cầu nối Apps Script): ping, check, stock, assign, insert, byname, lots, lot, settle, ledger, ledgerAdd, draft, drafts, undraft, push (sheet đại lý con).
+  Lệnh sổ tháng qua `api({action})` (Google Sheets API khi đăng nhập Google, hoặc cầu nối Apps Script): ping, check, stock, assign, insert, byname, lots, lot, settle, ledger, ledgerAdd, draft, drafts, undraft, rates, ratesSet, push (sheet đại lý con).
   Nháp: cột H sổ tháng `HT 27/11 12:10` (tên + giờ gửi), tô vàng A–D. Lọc đơn: Kiểm tra cước (bỏ 0đ, tự lọc bù ≤3 lượt) → Gửi khách & ghi nháp. Kho (Lọc đơn, Kho đơn) bỏ dòng có H. Bank khách: Lấy đơn nháp → Check cước → mã còn cước "Trả về kho" (xóa H), mã 0đ "Gửi bank & chốt" (ghi D/E/G, xanh, xóa H). Nháp quá 3 giờ chỉ nhắc trên app, không tự trả.
+  % khách: tab "% khách" trong app, lưu lịch sử vào tab "Bang %" của sổ tháng (Thời gian · Khách · Tín dụng % · VTS %; dòng mới nhất = % hiện tại). Lúc giao đơn (Lọc đơn ghi nháp/ghi tên, Kho đơn đại lý lấy) chọn loại TD/VTS/Chưa rõ và chốt % vào **cột I** (`TD 1,5%`). Bank khách lấy % từng mã theo cột I; trả về kho thì xóa cả H và I.
   Công nợ lưu ở tab "Cong no" của sổ tháng (Ngày · Khách · Loại · Số tiền · Ghi chú; dương = còn phải chuyển khách).
 - `web/core.js` — `SDSCore`: check cước trên trang otpsms (đợt 23 mã, chọn server, tự đổi server khi lỗi). Chạy **trong trang otpsms** (inject).
 - `web/tram.js` — khung "Trạm check" (bookmarklet / nút Mở Trạm trong APK): check, tải Excel, ghi sổ, copy tin đại lý (STT · mã · tiền).
@@ -20,7 +21,8 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
 - `web/tests/` — test Playwright (t8: bank/đại lý/công nợ/xong lô với Sheets giả; t10: nháp cột H) với `window.Native` giả lập (t4 Nhận lô/Lọc, t5 Sheets API giả, t6 sheet đại lý con, t3 Trạm). Cần file CSV sổ tháng: `T11_CSV=... node web/tests/t4.js`.
 
 ## Quy tắc nghiệp vụ (đừng đổi khi chưa hỏi anh)
-- Sổ tháng (Google Sheet "Hoa Don T11.2026", tab đầu): A lô (`HUY 20.11.26`) · B mã · C tiền · D khách làm (HOA, không dấu, liền) · E % thu · F % chi · G `=C*(E-F)`. Dòng tổng cuối: `=SUM(C1:Cn)`, `=SUM(G1:Gn)`. Ghi lô mới: chèn trước dòng tổng, xếp tiền tăng dần.
+- Sổ tháng (Google Sheet "Hoa Don T11.2026", tab đầu): A lô (`HUY 20.11.26`) · B mã · C tiền · D khách làm (HOA, không dấu, liền) · E % thu · F % chi · G `=C*(E-F)` · H nháp · I loại + % chốt lúc giao.
+- % khách do anh tự đặt, khác nhau theo khách, theo ngày, theo loại (Tín dụng / VTS); tính theo % đang đặt lúc anh báo khách (lúc giao đơn). Dòng tổng cuối: `=SUM(C1:Cn)`, `=SUM(G1:Gn)`. Ghi lô mới: chèn trước dòng tổng, xếp tiền tăng dần.
 - Cột F theo bậc: Bậc 3 <400k 0,5% · 400k–<1tr 0,6% · ≥1tr 1%. Bậc 2 <400k 0,5% · ≥400k 0,6%. HUY luôn bậc 3; HUNG, TUNG bậc 2; KHA/SANG/THUAN/TRI/NAM bậc 3 ngày 1–4, bậc 2 từ ngày 5.
 - Đầu mã: PB1107 + 7 số (đại lý thường), PB2005 + 7 số (HUY). Đại lý hay gửi 5 số cuối.
 - Tin bank khách: `N đơn (x%)` / dòng trống / tổng (dấu chấm) / phí (2 số lẻ, dấu phẩy) / còn (làm tròn). Nhiều mức % thì liệt kê từng mã `MÃ tiền (x,x%)`. Có ứng/trừ thì thêm `Đã ứng:` / `Trừ lại:` / `Còn chuyển:`.

@@ -51,7 +51,7 @@ input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:
 <div id="v-agent" hidden style="display:grid;gap:12px">
   <div class="card">
     <div class="hello"><div><div class="muted">Xin chào</div><b id="a-name" style="font-size:18px"></b><div class="muted" id="a-limit"></div></div>
-      <div style="text-align:right"><div class="muted">% nhận của anh/chị</div><div class="rate" id="a-rate"></div></div></div>
+      <div style="text-align:right"><div class="muted">% hôm nay</div><div class="rate" id="a-rate" style="font-size:18px"></div></div></div>
     <div class="muted" id="a-stock"></div>
     <div class="chips" id="a-bands"></div>
   </div>
@@ -62,6 +62,8 @@ input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:
     <div><div class="muted" style="font-weight:600;margin-bottom:4px">Số đơn</div>
       <div class="seg" id="t-k"><button data-k="0" aria-pressed="true">Bất kỳ</button><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="x">Khác</button></div>
       <input id="t-kx" inputmode="numeric" placeholder="Số đơn" hidden style="margin-top:6px;max-width:140px"></div>
+    <div><div class="muted" style="font-weight:600;margin-bottom:4px">Loại đơn</div>
+      <div class="seg" id="t-ty"><button data-t="TD">Tín dụng</button><button data-t="VTS">VTS</button><button data-t="" aria-pressed="true">Chưa rõ</button></div></div>
     <details><summary class="muted">Chọn dải tiền mỗi đơn</summary><div class="row" style="margin-top:8px"><label>Từ<input id="t-min" inputmode="numeric" placeholder="0"></label><label>Đến<input id="t-max" inputmode="numeric" placeholder="0"></label></div></details>
     <button class="btn" id="t-go">Lấy đơn</button>
     <div id="t-msg"></div>
@@ -126,16 +128,16 @@ function msg(id,t,kind){$(id).innerHTML=t?`<div class="msg ${kind||'err'}">${esc
 function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>msg('m-msg','Đã copy.','okm')).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();msg('m-msg','Đã copy.','okm')})}
 
 /* ---------- Đại lý ---------- */
-let PIN=ls.get('pin'),V=null,K=0;
+let PIN=ls.get('pin'),V=null,K=0,TY='';
 function showAgent(v){V=v;$('v-login').hidden=true;$('v-agent').hidden=false;
-  $('a-name').textContent=v.name;$('a-rate').textContent=pct(v.rate);$('a-limit').textContent=v.limit?`Giữ tối đa ${dots(v.limit)}đ cùng lúc`:'';
+  $('a-name').textContent=v.name;$('a-rate').innerHTML=(v.td==null&&v.vts==null)?'—':`TD ${v.td==null?'—':pct(v.td)}<br>VTS ${v.vts==null?'—':pct(v.vts)}`;$('a-limit').textContent=v.limit?`Giữ tối đa ${dots(v.limit)}đ cùng lúc`:'';
   $('a-stock').innerHTML=v.open?`Kho còn <b>${v.stock.n}</b> đơn · <b>${dots(v.stock.sum)}</b>`:'<span class="pill b">Kho đang tạm đóng</span>';
   $('a-bands').innerHTML=v.stock.bands.map(b=>`<button data-b="${esc(b.t)}" disabled>${esc(b.t)} · ${b.n} đơn</button>`).join('');
   $('take-card').hidden=!v.open;
   const hold=v.mine.filter(x=>x.s==='hold'),done=v.mine.filter(x=>x.s==='done');
-  const sum=hold.reduce((t,x)=>t+x.amount,0),fee=sum*v.rate/100;
+  const sum=hold.reduce((t,x)=>t+x.amount,0),fee=hold.reduce((t,x)=>t+x.amount*(x.p==null?0:x.p)/100,0),unk=hold.filter(x=>x.p==null).length;
   $('m-hold').textContent=hold.length?`Giữ tối đa ${v.hold} phút — quá hạn chưa báo xong thì đơn tự trả về kho.`:'Chưa giữ đơn nào. Nhập số tiền ở trên rồi bấm Lấy đơn.';
-  $('m-stats').innerHTML=hold.length?`<div class="stat"><small>${hold.length} đơn</small><b>${dots(sum)}</b></div><div class="stat"><small>Phí ${pct(v.rate)}</small><b>${(Math.round(fee*100)/100).toFixed(2).replace('.',',')}</b></div><div class="stat"><small>Tạm tính bank</small><b>${dots(sum-fee)}</b></div>`:'';
+  $('m-stats').innerHTML=hold.length?`<div class="stat"><small>${hold.length} đơn</small><b>${dots(sum)}</b></div><div class="stat"><small>Phí${unk?` (${unk} đơn chưa có %)`:''}</small><b>${(Math.round(fee*100)/100).toFixed(2).replace('.',',')}</b></div><div class="stat"><small>Tạm tính bank</small><b>${dots(sum-fee)}</b></div>`:'';
   $('m-tbl').innerHTML=hold.length?'<tr><th></th><th>Mã</th><th style="text-align:right">Số tiền</th><th>Còn giữ</th></tr>'+hold.map(x=>{const left=Math.max(0,Math.round((x.t+v.hold*60000-Date.now())/60000));return `<tr><td><input type="checkbox" data-c="${x.code}" style="width:auto"></td><td>${x.code}</td><td class="n">${dots(x.amount)}</td><td><span class="pill ${left<10?'b':'ok'}">${left} phút</span></td></tr>`}).join('')+`<tr><td></td><td><b>Tổng</b></td><td class="n"><b>${dots(sum)}</b></td><td></td></tr>`:'';
   ['m-copy','m-done','m-ret'].forEach(i=>$(i).disabled=!hold.length);
   $('d-card').hidden=!done.length;$('d-tbl').innerHTML='<tr><th>Mã</th><th style="text-align:right">Số tiền</th></tr>'+done.map(x=>`<tr><td>${x.code}</td><td class="n">${dots(x.amount)}</td></tr>`).join('');
@@ -147,10 +149,11 @@ $('pin').onkeydown=e=>{if(e.key==='Enter')login($('pin').value.trim())};
 $('logout').onclick=()=>{ls.set('pin',null);PIN=null;$('v-agent').hidden=true;$('v-login').hidden=false;$('pin').value=''};
 $('t-chips').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('t-target').value=dots(+b.dataset.v);V&&showAgent(V)};
 $('t-target').oninput=()=>{const n=num($('t-target').value);$('t-target').value=n?dots(n):''};
+$('t-ty').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('t-ty').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));TY=b.dataset.t};
 $('t-k').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('t-k').children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));K=b.dataset.k;$('t-kx').hidden=K!=='x'};
 $('t-go').onclick=async()=>{const target=num($('t-target').value);if(!target){msg('t-msg','Nhập số tiền cần lấy');return}
   const k=K==='x'?num($('t-kx').value):+K;$('t-go').disabled=true;msg('t-msg','Đang chọn đơn…','okm');
-  try{const v=await call('agentTake',PIN,{target,k,min:num($('t-min').value),max:num($('t-max').value)});showAgent(v);
+  try{const v=await call('agentTake',PIN,{target,k,ty:TY,min:num($('t-min').value),max:num($('t-max').value)});showAgent(v);
     const got=v.mine.filter(x=>v.picked.includes(x.code)),s=got.reduce((t,x)=>t+x.amount,0);msg('t-msg',`Đã lấy ${got.length} đơn · ${dots(s)}đ. Danh sách ở bên dưới.`,'okm')}
   catch(e){msg('t-msg',e.message)}finally{$('t-go').disabled=false}};
 const sel=()=>[...document.querySelectorAll('#m-tbl input:checked')].map(i=>i.dataset.c);

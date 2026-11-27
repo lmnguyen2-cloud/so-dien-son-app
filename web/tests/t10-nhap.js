@@ -5,7 +5,7 @@ await p.addInitScript(()=>{
  const p2=n=>String(n).padStart(2,'0'),d0=new Date(Date.now()-5*36e5),OLD=`HT ${p2(d0.getDate())}/${p2(d0.getMonth()+1)} ${p2(d0.getHours())}:${p2(d0.getMinutes())}`;
  const T={Sheet1:[['HUY 26.11.26','PB20050000012',300000,'','','','',''],['HUY 26.11.26','PB20050000019',500000,'','','','',''],['HUY 26.11.26','PB20050000021',400000,'','','','',''],['HUY 26.11.26','PB20050000029',450000,'','','','',''],['HUY 26.11.26','PB20050000039',600000,'','','','',''],['KHA 26.11.26','PB11070000041',200000,'','','','',OLD],['KHA 26.11.26','PB11070000053',350000,'','','','',OLD],['KHA 26.11.26','PB11070000062',800000,'KHA','','','',''],['','',"=SUM(C1:C8)",'','','','=SUM(G1:G8)','']]};
  window.__T=T;const ci=c=>c.charCodeAt(0)-65;
- function rng(r){const m=decodeURIComponent(r).match(/'(.+)'!([A-Z])(\d+)(?::([A-Z])(\d*))?/);return{tab:m[1],c0:ci(m[2]),r0:+m[3],c1:m[4]?ci(m[4]):ci(m[2]),r1:m[5]?+m[5]:null}}
+ function rng(r){let q=r;try{q=decodeURIComponent(r)}catch(e){}const m=q.match(/'(.+)'!([A-Z])(\d+)(?::([A-Z])(\d*))?/);return{tab:m[1],c0:ci(m[2]),r0:+m[3],c1:m[4]?ci(m[4]):ci(m[2]),r1:m[5]?+m[5]:null}}
  function set(rg,vals){const R=rng(rg);T[R.tab]=T[R.tab]||[];vals.forEach((vr,i)=>vr.forEach((v,j)=>{const row=T[R.tab][R.r0-1+i]||(T[R.tab][R.r0-1+i]=[]);row[R.c0+j]=v}))}
  window.Native={isDark:()=>false,copy:t=>{window.__c=t},shareZalo:t=>{window.__z=t},saveFile:n=>{window.__saved=n},askServers:()=>{},googleAuth:()=>setTimeout(()=>window.__gAuth({token:'T'}),5),
   check:(cj)=>{const c=JSON.parse(cj);setTimeout(()=>window.__sdsDone({rows:c.map(x=>({code:x,rem:x.endsWith('2')?150000:(x.endsWith('9')?333000:0),st:'ok'})),stop:''}),20)},
@@ -22,13 +22,17 @@ const N=s=>p.$eval(s,e=>e.innerText.replace(/\n/g,' | '));
 await p.click('#t-loc');await p.click('#f-load');await p.waitForTimeout(250);
 console.log('kho:',await N('#f-kho'));console.log('stock codes',JSON.stringify(await p.evaluate(()=>STOCK.rows.map(r=>r.code.slice(-2)))));
 console.log('warn banner:',await p.$eval('#nhap-warn',e=>e.hidden?'(ẩn)':e.innerText));
-await p.fill('#f-name','HT');await p.fill('#f-target','1.000.000');await p.click('#f-k button[data-k=""]');await p.click('#f-go');await p.waitForTimeout(50);
+await p.click('#t-pct');await p.fill('#p-nn','HT');await p.fill('#p-nt','2,3');await p.fill('#p-nv','1,8');await p.click('#p-add');await p.click('#p-save');await p.waitForTimeout(300);
+console.log('pct:',await N('#p-note'),'| tab',JSON.stringify(await p.evaluate(()=>window.__T['Bang %'])));
+await p.evaluate(()=>{localStorage.removeItem('sds_rates')});await p.click('#p-load');await p.waitForTimeout(300);console.log('reload:',await N('#p-tbl'));if(process.env.SHOT2)await p.screenshot({path:process.env.SHOT2});
+await p.click('#t-loc');await p.click('#f-ty button[data-t=TD]');
+await p.fill('#f-name','HT');await p.dispatchEvent('#f-name','change');console.log('f-rate',await p.$eval('#f-rate',e=>e.value));await p.fill('#f-target','1.000.000');await p.click('#f-k button[data-k=""]');await p.click('#f-go');await p.waitForTimeout(50);
 console.log('pick:',JSON.stringify(await p.evaluate(()=>PICK.map(r=>r.code.slice(-2)+':'+r.amount))));
 await p.click('#f-chk');await p.waitForTimeout(400);
 console.log('after chk:',JSON.stringify(await p.evaluate(()=>PICK.map(r=>r.code.slice(-2)+':'+r.amount+'/'+r.rem))),'|',await N('#f-note'));
 await p.click('#f-nhap');console.log(await N('#f-note'));await p.click('#f-nhap');await p.waitForTimeout(400);
 console.log(await N('#f-note'));console.log('zalo:',JSON.stringify(await p.evaluate(()=>window.__z)));
-console.log('H col:',JSON.stringify(await p.evaluate(()=>window.__T.Sheet1.map(r=>r[7]||''))));
+console.log('H col:',JSON.stringify(await p.evaluate(()=>window.__T.Sheet1.map(r=>r[7]||''))),'I col:',JSON.stringify(await p.evaluate(()=>window.__T.Sheet1.map(r=>r[8]||''))));
 console.log('nháp list:',await N('#nh-list'));if(process.env.SHOT){await p.$eval('#nh-list',e=>e.scrollIntoView());await p.screenshot({path:process.env.SHOT})}
 await p.click('.nh-g.old button[data-a=back]');await p.click('.nh-g.old button[data-a=back]');await p.waitForTimeout(300);console.log(await N('#nh-note'),'|',await N('#nh-list'),'| banner',await p.$eval('#nhap-warn',e=>e.hidden?'(ẩn)':e.innerText));
 // Bank: lấy đơn nháp
@@ -37,6 +41,6 @@ console.log('b-in:',JSON.stringify(await p.$eval('#b-in',e=>e.value)));
 await p.click('#bs-check');await p.waitForTimeout(250);console.log('after check:',JSON.stringify(await p.$eval('#b-in',e=>e.value)),'|',await N('#bs-note'),'| back hidden',await p.$eval('#bs-back',e=>e.hidden));
 await p.click('#bs-back');await p.click('#bs-back');await p.waitForTimeout(300);console.log(await N('#bs-note'));
 await p.click('#bs-settle');await p.click('#bs-settle');await p.waitForTimeout(400);console.log(await N('#bs-note'));
-console.log('sheet:',JSON.stringify(await p.evaluate(()=>window.__T.Sheet1.map(r=>[r[1].slice(-2),r[3],r[4],r[7]||'']))));
+console.log('sheet:',JSON.stringify(await p.evaluate(()=>window.__T.Sheet1.map(r=>[r[1].slice(-2),r[3],r[4],r[7]||'',r[8]||'']))));
 console.log('banner sau:',await p.$eval('#nhap-warn',e=>e.hidden?'(ẩn)':e.innerText));
 console.log('errs',errs);await b.close()})();
