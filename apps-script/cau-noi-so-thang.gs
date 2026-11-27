@@ -34,6 +34,9 @@ function doPost(e) {
     if (b.action === 'lots') return out_(lots_());
     if (b.action === 'lot') return out_(lot_(b.lot));
     if (b.action === 'settle') return out_(settle_(b.name, b.rows || []));
+    if (b.action === 'draft') return out_(draft_(b.codes || [], b.name || ''));
+    if (b.action === 'drafts') return out_(drafts_(b.name || ''));
+    if (b.action === 'undraft') return out_(undraft_(b.codes || []));
     if (b.action === 'ledger') return out_(ledger_());
     if (b.action === 'ledgerAdd') return out_(ledgerAdd_(b.rows || []));
     return out_({ ok: false, err: 'Không rõ lệnh' });
@@ -90,9 +93,9 @@ function insert_(rows) {
 // Kho: các mã chưa có khách (cột D trống), còn tiền → [[dòng, lô, mã, tiền]]
 function stock_() {
   const s = sheet_(), last = s.getLastRow();
-  const v = s.getRange(1, 1, last, 4).getValues();
+  const v = s.getRange(1, 1, last, 8).getValues();
   const rows = [];
-  v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (/^[A-Z]{2}\d{8,}/.test(c) && +r[2] > 0 && String(r[3]).trim() === '') rows.push([i + 1, String(r[0]), c, +r[2]]); });
+  v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (/^[A-Z]{2}\d{8,}/.test(c) && +r[2] > 0 && String(r[3]).trim() === '' && String(r[7]).trim() === '') rows.push([i + 1, String(r[0]), c, +r[2]]); });
   return { ok: true, name: book_().getName(), rows: rows };
 }
 
@@ -143,7 +146,7 @@ function settle_(name, rows) {
     v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (!(c in want)) return; const d = String(r[3]).trim();
       if (d && strip_(d) !== name) { taken.push([c, d]); delete want[c]; return; }
       const n = i + 1; s.getRange(n, 4, 1, 2).setValues([[name, want[c]]]); s.getRange(n, 5).setNumberFormat('0.0%');
-      s.getRange(n, 7).setFormula('=C' + n + '*(E' + n + '-F' + n + ')').setNumberFormat('#,##0'); s.getRange(n, 1, 1, 4).setBackground('#c6efce');
+      s.getRange(n, 7).setFormula('=C' + n + '*(E' + n + '-F' + n + ')').setNumberFormat('#,##0'); s.getRange(n, 1, 1, 4).setBackground('#c6efce'); s.getRange(n, 8).setValue('');
       done++; delete want[c]; });
     return { ok: true, name: book_().getName(), done: done, taken: taken, missing: Object.keys(want) };
   } finally { lock.releaseLock(); }
@@ -151,3 +154,36 @@ function settle_(name, rows) {
 function ledgerSheet_() { const b = book_(); let s = b.getSheetByName('Cong no'); if (!s) { s = b.insertSheet('Cong no'); s.appendRow(['Ngày', 'Khách', 'Loại', 'Số tiền', 'Ghi chú']); } return s; }
 function ledger_() { const s = ledgerSheet_(), n = s.getLastRow(); return { ok: true, name: book_().getName(), rows: n > 1 ? s.getRange(2, 1, n - 1, 5).getValues().map(r => r.map(x => x instanceof Date ? x.toLocaleDateString('vi-VN') : x)) : [] }; }
 function ledgerAdd_(rows) { const s = ledgerSheet_(); rows.forEach(r => s.appendRow(r)); return { ok: true }; }
+
+// ===== Nháp (cột H): "HT 27/11 12:10" — giữ đơn đã gửi khách, chưa ghi D =====
+function stamp_() { return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM HH:mm'); }
+function draft_(codes, name) {
+  name = strip_(name); if (!name) return { ok: false, err: 'Chưa có tên khách' };
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 8).getValues(), want = {}, taken = [], tag = name + ' ' + stamp_(); let done = 0;
+    codes.forEach(c => want[String(c).trim().toUpperCase()] = 1);
+    v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (!want[c]) return; delete want[c];
+      const d = String(r[3]).trim(), h = String(r[7]).trim();
+      if (d || (h && strip_(h.split(' ')[0]) !== name)) { taken.push([c, d || h]); return; }
+      s.getRange(i + 1, 8).setValue(tag); s.getRange(i + 1, 1, 1, 4).setBackground('#fff2b3'); done++; });
+    return { ok: true, name: book_().getName(), done: done, tag: tag, taken: taken, missing: Object.keys(want) };
+  } finally { lock.releaseLock(); }
+}
+function drafts_(name) {
+  name = strip_(name); const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 8).getValues(), rows = [];
+  v.forEach((r, i) => { const h = String(r[7]).trim(), c = String(r[1]).trim().toUpperCase();
+    if (!h || !/^[A-Z]{2}\d{8,}/.test(c) || String(r[3]).trim()) return; if (name && strip_(h.split(' ')[0]) !== name) return;
+    rows.push([i + 1, String(r[0]), c, +r[2] || 0, h]); });
+  return { ok: true, name: book_().getName(), rows: rows };
+}
+function undraft_(codes) {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const s = sheet_(), v = s.getRange(1, 1, s.getLastRow(), 8).getValues(), want = {}; let done = 0;
+    codes.forEach(c => want[String(c).trim().toUpperCase()] = 1);
+    v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (!want[c] || !String(r[7]).trim() || String(r[3]).trim()) return;
+      s.getRange(i + 1, 8).setValue(''); s.getRange(i + 1, 1, 1, 4).setBackground(null); delete want[c]; done++; });
+    return { ok: true, name: book_().getName(), done: done, missing: Object.keys(want) };
+  } finally { lock.releaseLock(); }
+}

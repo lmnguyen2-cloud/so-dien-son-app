@@ -5,7 +5,8 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
 ## Cấu trúc
 - `web/so-dien-son.html` — **nguồn chính** của app (một file HTML/JS). Chạy được 3 nơi: bản web (artifact Claude), file mở trên máy, và bên trong APK (WebView, có `window.Native`).
   Tab chính: Nhận lô · Bank khách · Đại lý · Lọc đơn · Công nợ; nút "Khác" mở Check cước · Tra mã · Cài đặt.
-  Lệnh sổ tháng qua `api({action})` (Google Sheets API khi đăng nhập Google, hoặc cầu nối Apps Script): ping, check, stock, assign, insert, byname, lots, lot, settle, ledger, ledgerAdd, push (sheet đại lý con).
+  Lệnh sổ tháng qua `api({action})` (Google Sheets API khi đăng nhập Google, hoặc cầu nối Apps Script): ping, check, stock, assign, insert, byname, lots, lot, settle, ledger, ledgerAdd, draft, drafts, undraft, push (sheet đại lý con).
+  Nháp: cột H sổ tháng `HT 27/11 12:10` (tên + giờ gửi), tô vàng A–D. Lọc đơn: Kiểm tra cước (bỏ 0đ, tự lọc bù ≤3 lượt) → Gửi khách & ghi nháp. Kho (Lọc đơn, Kho đơn) bỏ dòng có H. Bank khách: Lấy đơn nháp → Check cước → mã còn cước "Trả về kho" (xóa H), mã 0đ "Gửi bank & chốt" (ghi D/E/G, xanh, xóa H). Nháp quá 3 giờ chỉ nhắc trên app, không tự trả.
   Công nợ lưu ở tab "Cong no" của sổ tháng (Ngày · Khách · Loại · Số tiền · Ghi chú; dương = còn phải chuyển khách).
 - `web/core.js` — `SDSCore`: check cước trên trang otpsms (đợt 23 mã, chọn server, tự đổi server khi lỗi). Chạy **trong trang otpsms** (inject).
 - `web/tram.js` — khung "Trạm check" (bookmarklet / nút Mở Trạm trong APK): check, tải Excel, ghi sổ, copy tin đại lý (STT · mã · tiền).
@@ -15,7 +16,7 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
 - `.github/workflows/build.yml` — push lên `main` là GitHub dựng APK debug và tạo Release `build-N` (file `SoDienSon.apk`). Tăng `versionCode/versionName` trong `app/build.gradle` mỗi bản.
 - `apps-script/cau-noi-so-thang.gs` — cầu nối Apps Script (dự phòng cho bản web): ping/check/insert/stock/assign theo link sheet gửi lên.
 - `kho-don/` — trang "Kho đơn" cho đại lý tự lấy đơn bằng PIN (Apps Script web app: `Code.gs` + `Index.html`). Test: `node kho-don/test.js`, `node kho-don/test-ui.js`.
-- `web/tests/` — test Playwright (t8: bank/đại lý/công nợ/xong lô với Sheets giả) với `window.Native` giả lập (t4 Nhận lô/Lọc, t5 Sheets API giả, t6 sheet đại lý con, t3 Trạm). Cần file CSV sổ tháng: `T11_CSV=... node web/tests/t4.js`.
+- `web/tests/` — test Playwright (t8: bank/đại lý/công nợ/xong lô với Sheets giả; t10: nháp cột H) với `window.Native` giả lập (t4 Nhận lô/Lọc, t5 Sheets API giả, t6 sheet đại lý con, t3 Trạm). Cần file CSV sổ tháng: `T11_CSV=... node web/tests/t4.js`.
 
 ## Quy tắc nghiệp vụ (đừng đổi khi chưa hỏi anh)
 - Sổ tháng (Google Sheet "Hoa Don T11.2026", tab đầu): A lô (`HUY 20.11.26`) · B mã · C tiền · D khách làm (HOA, không dấu, liền) · E % thu · F % chi · G `=C*(E-F)`. Dòng tổng cuối: `=SUM(C1:Cn)`, `=SUM(G1:Gn)`. Ghi lô mới: chèn trước dòng tổng, xếp tiền tăng dần.

@@ -24,12 +24,12 @@ function book_() {
   return SpreadsheetApp.openById(m[1]);
 }
 function sheet_() { return book_().getSheets()[0]; }
-function readAll_(s) { const last = s.getLastRow(); return last ? s.getRange(1, 1, last, 4).getValues() : []; }
+function readAll_(s) { const last = s.getLastRow(); return last ? s.getRange(1, 1, last, 8).getValues() : []; }
 
-// đơn trong kho: mã PB…, tiền > 0, cột D trống
+// đơn trong kho: mã PB…, tiền > 0, cột D trống, cột H (nháp) trống
 function stock_(v) {
   const out = [];
-  v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (/^[A-Z]{2}\d{8,}/.test(c) && +r[2] > 0 && String(r[3]).trim() === '') out.push({ row: i + 1, lot: String(r[0]), code: c, amount: +r[2] }); });
+  v.forEach((r, i) => { const c = String(r[1]).trim().toUpperCase(); if (/^[A-Z]{2}\d{8,}/.test(c) && +r[2] > 0 && String(r[3]).trim() === '' && String(r[7] == null ? '' : r[7]).trim() === '') out.push({ row: i + 1, lot: String(r[0]), code: c, amount: +r[2] }); });
   return out;
 }
 
