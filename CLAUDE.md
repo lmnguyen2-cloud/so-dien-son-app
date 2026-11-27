@@ -16,13 +16,15 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
   Ký bằng `app/sds.keystore` (pass `sodienson`) — **không đổi khóa**, nếu đổi thì anh phải gỡ app mới cài được.
 - `.github/workflows/build.yml` — push lên `main` là GitHub dựng APK debug và tạo Release `build-N` (file `SoDienSon.apk`). Tăng `versionCode/versionName` trong `app/build.gradle` mỗi bản.
 - `apps-script/cau-noi-so-thang.gs` — cầu nối Apps Script (dự phòng cho bản web): ping/check/insert/stock/assign theo link sheet gửi lên.
+- Sheet "Điện SON" (1EfdCK9PFXIjjdNJ2MXJL5Da1hyrorrjlLpqnDAUlc4g, tab data): link tự lấy đơn anh giao khách lẻ — A mã · B tiền · C % (cột "VTS") · D Tên Zalo · E Lock time · F check cước; dòng tên lô xen giữa.
 - `kho-don/` — trang "Kho đơn" cho đại lý tự lấy đơn bằng PIN (Apps Script web app: `Code.gs` + `Index.html`).
   Đã triển khai 27/11 ở dự án Apps Script "Kho đơn Điện Sơn" (tài khoản lm.nguyen2@gmail.com; sổ T11 của taso.kem99 đang mở quyền sửa theo link): https://script.google.com/macros/s/AKfycbx493omj2WjKgbBqoDZY9snFKDjuiZB2epM4It4zZuHrSVbjWafgc2DSWj3tIa--GVS/exec — mã quản lý chỉ anh giữ, không ghi vào kho mã. Test: `node kho-don/test.js`, `node kho-don/test-ui.js`.
 - `web/tests/` — test Playwright (t8: bank/đại lý/công nợ/xong lô với Sheets giả; t10: nháp cột H) với `window.Native` giả lập (t4 Nhận lô/Lọc, t5 Sheets API giả, t6 sheet đại lý con, t3 Trạm). Cần file CSV sổ tháng: `T11_CSV=... node web/tests/t4.js`.
 
 ## Quy tắc nghiệp vụ (đừng đổi khi chưa hỏi anh)
 - Sổ tháng (Google Sheet "Hoa Don T11.2026", tab đầu): A lô (`HUY 20.11.26`) · B mã · C tiền · D khách làm (HOA, không dấu, liền) · E % thu · F % chi · G `=C*(E-F)` · H nháp · I loại + % chốt lúc giao.
-- % khách do anh tự đặt, khác nhau theo khách, theo ngày, theo loại (Tín dụng / VTS); tính theo % đang đặt lúc anh báo khách (lúc giao đơn). Dòng tổng cuối: `=SUM(C1:Cn)`, `=SUM(G1:Gn)`. Ghi lô mới: chèn trước dòng tổng, xếp tiền tăng dần.
+- % khách do anh tự đặt, khác nhau theo khách, theo ngày, theo loại (Tín dụng / VTS); tính theo % đang đặt lúc anh báo khách (lúc giao đơn).
+- Dòng tổng cuối: `=SUM(C1:Cn)`, `=SUM(G1:Gn)`. Ghi lô mới: chèn trước dòng tổng, xếp tiền tăng dần.
 - Cột F theo bậc: Bậc 3 <400k 0,5% · 400k–<1tr 0,6% · ≥1tr 1%. Bậc 2 <400k 0,5% · ≥400k 0,6%. HUY luôn bậc 3; HUNG, TUNG bậc 2; KHA/SANG/THUAN/TRI/NAM bậc 3 ngày 1–4, bậc 2 từ ngày 5.
 - Đầu mã: PB1107 + 7 số (đại lý thường), PB2005 + 7 số (HUY). Đại lý hay gửi 5 số cuối.
 - Tin bank khách: `N đơn (x%)` / dòng trống / tổng (dấu chấm) / phí (2 số lẻ, dấu phẩy) / còn (làm tròn). Nhiều mức % thì liệt kê từng mã `MÃ tiền (x,x%)`. Có ứng/trừ thì thêm `Đã ứng:` / `Trừ lại:` / `Còn chuyển:`.
