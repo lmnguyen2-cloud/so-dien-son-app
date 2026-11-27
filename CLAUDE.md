@@ -25,7 +25,7 @@ App phục vụ việc kinh doanh bán lại hóa đơn tiền điện của anh
 - Tin bank khách: `N đơn (x%)` / dòng trống / tổng (dấu chấm) / phí (2 số lẻ, dấu phẩy) / còn (làm tròn). Nhiều mức % thì liệt kê từng mã `MÃ tiền (x,x%)`. Có ứng/trừ thì thêm `Đã ứng:` / `Trừ lại:` / `Còn chuyển:`.
 - Tin thanh toán đại lý: `THANH TOÁN X (n đơn)`, từng mã kèm %, dòng tổng theo bậc, rồi tổng/phí/còn.
 - Sheet đại lý con "ĐIỆN A SƠN VTS": dán đơn còn cước **từ 400k**, 1 dòng tên lô (Georgia 36 đậm đỏ nền vàng) rồi Mã·Tiền, cách lô trước 1 dòng trống.
-- Đơn giao Phúc không ghi tên lên sổ tháng cho tới khi Phúc báo xong.
+- Đơn giao Phúc không ghi tên lên cột D sổ tháng cho tới khi Phúc báo xong; nhưng **được ghi nháp cột H** (`PHUC dd/mm HH:MM`) như khách khác (anh duyệt 27/11).
 - **Không bao giờ** tự nhập mật khẩu / đăng nhập otpsms hay Google thay anh.
 
 ## Đăng nhập Google trong APK
